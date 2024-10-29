@@ -38,10 +38,10 @@ module fp_to_float #(
     localparam FP_WIDTH = 1 + FP_WIDTH_INT + FP_WIDTH_FRAC
 ) (
     input logic     [FP_WIDTH-1:0]          i_fp,
-    output logic    [FLOAT_WIDTH-1:0]       o_float
+    output logic    [FLOAT_WIDTH-1:0]       o_float,
+    output logic                            o_denormalized_number,
+    output logic                            o_zero
 //     output logic                            o_overflow,
-//     output logic                            o_zero,
-//     output logic                            o_denormalized_number,
 //     output logic                            o_infinity,
 //     output logic                            o_nan
 );
@@ -93,6 +93,7 @@ module fp_to_float #(
     logic   [LCL.FLOAT_WIDTH_MANTISSA-1:0]      float_mantissa;
     logic   [LCL.FLOAT_WIDTH_EXPONENT-1:0]      float_exponent;
     logic                                       float_sign_bit;
+    logic   [FLOAT_WIDTH-1:0]                   float_denormalized;
     logic   [FP_WIDTH_INT-1:0]                  fp_int;
     logic   [FP_WIDTH_FRAC-1:0]                 fp_frac;
     logic                                       fp_sign_bit;
@@ -133,7 +134,6 @@ module fp_to_float #(
     assign float_exponent = LCL.FLOAT_EXPONENT_BIAS +
                             FP_WIDTH_INT - fp_leading_zeros - LCL.FLOAT_LEADING_BIT;
 
-//     always_comb begin: proc_float_mantissa
     generate begin: gen_float_mantissa
         logic [FP_WIDTH-2:0] float_mantissa_interm;
         // (same trick as in the float_to_fp module: Instead of dynamically 
@@ -154,7 +154,36 @@ module fp_to_float #(
 
     assign float_sign_bit = fp_sign_bit;
 
-    assign o_float = {float_sign_bit, float_exponent, float_mantissa};
+    generate begin: gen_float_denormalized
+        if (LCL.FLOAT_WIDTH_MANTISSA > FP_WIDTH_FRAC) begin
+            assign float_denormalized = {float_sign_bit, {LCL.FLOAT_WIDTH_EXPONENT{1'b0}},
+                        fp_frac, {(LCL.FLOAT_WIDTH_MANTISSA-FP_WIDTH_FRAC){1'b0}}};
+        end else begin
+            assign float_denormalized = {float_sign_bit, {LCL.FLOAT_WIDTH_EXPONENT{1'b0}},
+                        fp_frac[FP_WIDTH_FRAC-1 -: FLOAT_WIDTH_MANTISSA]};
+        end
+    end endgenerate
+
+    always_comb begin: proc_output_float
+        o_denormalized_number = 1'b0;
+        o_zero = 1'b0;
+        // TODO: if you can turn that as much as possible of that if chain into 
+        // a case statement for better synthesizability
+
+        // (FP_WIDTH_INT needs to be on the right hand side although it's 
+        // unintuitive because you can't have negative numbers in the comparison 
+        // since fp_leading_zeros is not a signed datatype)
+        if (fp_leading_zeros+LCL.FLOAT_LEADING_BIT >= LCL.FLOAT_EXPONENT_BIAS+FP_WIDTH_INT) begin
+            o_float = float_denormalized;
+            o_denormalized_number = 1'b1;
+        end else if ({fp_int, fp_frac} == '0) begin
+            o_float = {float_sign_bit, {FLOAT_WIDTH-1{1'b0}}};
+            o_zero = 1'b1;
+        end else begin
+            o_float = {float_sign_bit, float_exponent, float_mantissa};
+        end
+
+    end
     
 
     //----------------------------------------------------------
