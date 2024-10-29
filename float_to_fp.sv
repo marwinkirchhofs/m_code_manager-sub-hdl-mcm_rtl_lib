@@ -13,7 +13,14 @@
 * The resulting total width of the floating point number is 
 * (1+FP_WIDTH_INT+FP_WIDTH_FRAC) to account for the sign bit.
 * The core does report an overflow into the fixed-point integer bits (but no 
-* form of underflow)
+* form of underflow).
+* The core also reports special floating point numbers as per the IEEE754 
+* standard: positive/negative zero, denormalized numbers, infinities, NaN (by 
+* means of the respective o_* bits). Zero and denormalized numbers will be 
+* converted into their fixed-point counterparts, while for infinities and NaN 
+* o_fp is meaningless. Note that the detection is hard-coded, and not 
+* parameterizable. Therefore regardless of whether or not FLOAT_STD is set 
+* "None", the all 0's and all 1's exponents will be detected as special numbers.
 *
 * INTERFACE:
 * * parameters:
@@ -31,7 +38,8 @@
 * 
 * TODO: provide input registers, if I had to guess I'd say that the fanout from 
 * the input mantissa to the dynamic shift LUTs can become pretty ugly
-* TODO: special numbers (all 0's, all 1's)
+* TODO: FP_2S_COMPLEMENT=0 is untested (in fact, only tested with the ieee 
+* formats)
 */
 
 module float_to_fp #(
@@ -94,6 +102,10 @@ module float_to_fp #(
     logic   [FP_WIDTH_INT-1:0]                  fp_int;
     logic   [FP_WIDTH_FRAC-1:0]                 fp_frac;
 
+    logic   [FP_WIDTH-2:0]                      fp_no_sign;
+    // helper for type cast to avoid signal width warning
+    typedef logic [FP_WIDTH-2:0] fp_no_sign_t;
+
     // variable to hold the mantissa extended by the hidden leading bit if there 
     // is one
     logic   [LCL.FLOAT_WIDTH_MANTISSA_NORM-1:0] float_mantissa_norm;
@@ -141,16 +153,12 @@ module float_to_fp #(
         end
     end endgenerate
 
-    // TODO: if that works, put the variable above (and if it doesn't, this 
-    // block is obsolete)
-    logic [FP_WIDTH-2:0]                fp_interm;
-    typedef logic [FP_WIDTH-2:0] temp_t;
     always_comb begin
         // quick note for the mantissa shifting/slicing: In theory, you have to 
         // position a dynamically changing slice width of the mantissa to 
-        // a dynamically changing index in fp_interm. Since that is invalid with 
+        // a dynamically changing index in fp_no_sign. Since that is invalid with 
         // systemverilog operators, the solution is to do it the other way 
-        // around: Chop the mantissa to the width of fp_interm, and then shift 
+        // around: Chop the mantissa to the width of fp_no_sign, and then shift 
         // it "out" into the opposite direction, which effectively is a valid 
         // means for dynamically slicing off a portion of a vector.
         if (shift_mantissa_dir == 1'b1) begin
@@ -158,25 +166,38 @@ module float_to_fp #(
             // shift fits into the integer range, because if it doesn't, the 
             // result is useless whatever you do, and we have the o_overflow 
             // flag for that
-            fp_interm = float_mantissa_norm[LCL.FLOAT_WIDTH_MANTISSA_NORM-1 -: FP_WIDTH-1]>>
-                            (FP_WIDTH_INT-LCL.FLOAT_LEADING_BIT-shift_mantissa_bits);
-            // TODO: handle if the mantissa is narrower than FP_WIDTH-1 (you 
-            // have to left-justify before shifting in that case)
+            if (LCL.FLOAT_WIDTH_MANTISSA_NORM >= (FP_WIDTH-1)) begin
+                fp_no_sign = float_mantissa_norm[LCL.FLOAT_WIDTH_MANTISSA_NORM-1 -: FP_WIDTH-1]>>
+                                (FP_WIDTH_INT-LCL.FLOAT_LEADING_BIT-shift_mantissa_bits);
+            end else begin
+                // (if mantissa is narrower than the non-signed fixed-point, 
+                // instead of cropping it, extend it to that size before 
+                // shifting)
+                fp_no_sign = ({ float_mantissa_norm,
+                                {(FP_WIDTH-1-LCL.FLOAT_WIDTH_MANTISSA_NORM){1'b0}}})>>
+                                (FP_WIDTH_INT-LCL.FLOAT_LEADING_BIT-shift_mantissa_bits);
+            end
         end else begin
             // ugly shift, quick explanation: first cut float_mantissa_norm to 
             // only the FP_WIDTH_FRAC+LCL.FLOAT_LEADING_BIT bits (because 
             // anything below that is below the fp precision anyways), then 
-            // right-sheft that according to what we need
-            fp_interm = temp_t'(
-                    float_mantissa_norm[
+            // right-shift that according to what we need
+
+            // (testing for FLOAT_WIDTH_MANTISSA_NORM >= 
+            // FP_WIDTH_FRAC+FLOAT_LEADING_BIT is equivalent)
+            if (LCL.FLOAT_WIDTH_MANTISSA >= FP_WIDTH_FRAC) begin
+                fp_no_sign = fp_no_sign_t'(
+                        float_mantissa_norm[
                             LCL.FLOAT_WIDTH_MANTISSA_NORM-1 -: FP_WIDTH_FRAC+LCL.FLOAT_LEADING_BIT]
                             >>shift_mantissa_bits);
-            // TODO: handle if the mantissa is narrower than fractional bits 
-            // + leading bit
+            end else begin
+                fp_no_sign = fp_no_sign_t'(
+                        ({float_mantissa_norm, {(FP_WIDTH_FRAC-LCL.FLOAT_WIDTH_MANTISSA){1'b1}}})
+                            >>shift_mantissa_bits);
+            end
         end
     end
     
-    // TODO: this might only apply to IEEE standards
     always_comb begin: proc_special_cases
         // logic of the output machine: Whenever there is a meaningful value to 
         // apply to o_fp, do so, otherwise set it to '0. Next to that, for any 
@@ -202,10 +223,13 @@ module float_to_fp #(
                     end
                 end else begin
                     // DENORMALIZED NUMBER (leading 0's in mantissa)
-                    // TODO: cover if the mantissa is shorter than the 
-                    // fractional width
-                    o_fp = {float_sign_bit, {FP_WIDTH_INT{1'b0}},
-                            float_mantissa[LCL.FLOAT_WIDTH_MANTISSA-1 -: FP_WIDTH_FRAC]};
+                    if (LCL.FLOAT_WIDTH_MANTISSA >= FP_WIDTH_FRAC) begin
+                        o_fp = {float_sign_bit, {FP_WIDTH_INT{1'b0}},
+                                float_mantissa[LCL.FLOAT_WIDTH_MANTISSA-1 -: FP_WIDTH_FRAC]};
+                    end else begin
+                        o_fp = {float_sign_bit, {FP_WIDTH_INT{1'b0}},
+                                float_mantissa, {(FP_WIDTH_FRAC-LCL.FLOAT_WIDTH_MANTISSA){1'b0}}};
+                    end
                     o_denormalized_number = 1'b1;
                 end
             end
@@ -221,17 +245,20 @@ module float_to_fp #(
             default: begin
                 // apply 2's complement if necessary
                 if (FP_2S_COMPLEMENT) begin
-                    o_fp = float_sign_bit == 1'b1 ? ~{1'b0, fp_interm} + 1 : {1'b0, fp_interm};
+                    o_fp = float_sign_bit == 1'b1 ? ~{1'b0, fp_no_sign} + 1 : {1'b0, fp_no_sign};
                 end else begin
-                    o_fp = {float_sign_bit, fp_interm};
+                    o_fp = {float_sign_bit, fp_no_sign};
                 end
             end
         endcase
     end
 
+    // when is there an overflow? Of course if we have to shift more than there 
+    // is space, but: That would also be the case for the reserved exponents 
+    // (all 1's and all 0's). Thus exclude those cases.
     assign o_overflow =
-        (shift_mantissa_bits > (FP_WIDTH_INT-LCL.FLOAT_LEADING_BIT)) &
-        ~o_denormalized_number & ~o_zero;
+                (shift_mantissa_bits > (FP_WIDTH_INT-LCL.FLOAT_LEADING_BIT)) &
+                !(float_exponent == '0) & !(float_exponent == '1);
 
     //----------------------------------------------------------
     // SUBMODULES
