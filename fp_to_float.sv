@@ -9,18 +9,21 @@
 *
 * * DESCRIPTION:
 * Arbitrarily parameterizable converter for fixed-point numbers to floating 
-* point (base 2)
+* point (base 2). It explicitly supports IEEE-754 32-bit and 64-bit formats (see 
+* parameter :FLOAT_STD:). Notice that regardless of whether or not a specific 
+* standard is chosen, special numbers (exponent all 1's or all 0's) are treated 
+* as per the IEEE standard.
 * The resulting total width of the floating point number is 
 * (1+FP_WIDTH_INT+FP_WIDTH_FRAC) to account for the sign bit.
-* TODO: what the core reports (overflow/underflow etc)
+* The core reports a zero and a denormalized number.
 *
-* * INTERFACE:
-*		[port name]		- [port description]
-* * inputs:
-* * outputs:
+* INTERFACE:
+* * parameters:
+*   -> see float_to_fp module, the parameters are the same and behave in the 
+*   same way
 *
-* TODO: denormalized numbers
-* TODO: special numbers (actually, only 0 I guess)
+* TODO: untested with any non-ieee formats
+* TODO: add parameterizable input registers
 */
 
 import mcm_decimal_pkg::*;
@@ -41,9 +44,6 @@ module fp_to_float #(
     output logic    [FLOAT_WIDTH-1:0]       o_float,
     output logic                            o_denormalized_number,
     output logic                            o_zero
-//     output logic                            o_overflow,
-//     output logic                            o_infinity,
-//     output logic                            o_nan
 );
 
     // (in fact, this is a generate statement. You just can't surround it by 
@@ -100,15 +100,6 @@ module fp_to_float #(
 
     logic   [$clog2(FP_WIDTH-1)-1:0]            fp_leading_zeros;
     logic   [FP_WIDTH-2:0]                      fp_no_sign;
-    // helper for type cast to avoid signal width warning
-    typedef logic [FP_WIDTH-2:0] fp_no_sign_t;
-
-    // variable to hold the mantissa extended by the hidden leading bit if there 
-    // is one
-    logic   [LCL.FLOAT_WIDTH_MANTISSA_NORM-1:0] float_mantissa_norm;
-
-    logic   [$clog2(LCL.FLOAT_WIDTH_MANTISSA)-1:0]      shift_mantissa_bits;
-    logic                                               shift_mantissa_dir;
 
 
     //----------------------------------------------------------
@@ -173,22 +164,18 @@ module fp_to_float #(
         // (FP_WIDTH_INT needs to be on the right hand side although it's 
         // unintuitive because you can't have negative numbers in the comparison 
         // since fp_leading_zeros is not a signed datatype)
-        if (fp_leading_zeros+LCL.FLOAT_LEADING_BIT >= LCL.FLOAT_EXPONENT_BIAS+FP_WIDTH_INT) begin
-            o_float = float_denormalized;
-            o_denormalized_number = 1'b1;
-        end else if ({fp_int, fp_frac} == '0) begin
+        if ({fp_int, fp_frac} == '0) begin
             o_float = {float_sign_bit, {FLOAT_WIDTH-1{1'b0}}};
             o_zero = 1'b1;
+        end else if (fp_leading_zeros+LCL.FLOAT_LEADING_BIT >=
+                        LCL.FLOAT_EXPONENT_BIAS+FP_WIDTH_INT) begin
+            o_float = float_denormalized;
+            o_denormalized_number = 1'b1;
         end else begin
             o_float = {float_sign_bit, float_exponent, float_mantissa};
         end
 
     end
     
-
-    //----------------------------------------------------------
-    // SUBMODULES
-    //----------------------------------------------------------
-
 endmodule
 
