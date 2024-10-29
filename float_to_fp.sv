@@ -24,7 +24,7 @@
 *
 * INTERFACE:
 * * parameters:
-*   :FLOAT_STD: setting to "IEEE_754_32" or "IEEE_754_64" overwrites any other 
+*   :FLOAT_STD: setting to FLOAT_STD_IEEE_754_32 or FLOAT_STD_IEEE_754_64 overwrites any other 
 *   "FLOAT_WIDTH_*" parameters and selects the respective ieee floating point 
 *   format
 *   :FP_2S_COMPLEMENT: if set to 1, fixed-point result will use 2's complement 
@@ -42,8 +42,10 @@
 * formats)
 */
 
+import mcm_decimal_pkg::*;
+
 module float_to_fp #(
-    parameter                   FLOAT_STD = "None",
+    parameter enum_float_std_t  FLOAT_STD = FLOAT_STD_NONE,
     parameter                   FLOAT_WIDTH_EXPONENT = 8,
     parameter                   FLOAT_WIDTH_MANTISSA = 24,
     parameter                   FLOAT_EXPONENT_BIAS = $pow(2,7)-1,
@@ -68,19 +70,19 @@ module float_to_fp #(
     // anymore. Guess you'd have to then add the gen name to the hierarchical 
     // reference, but I rather just removed the generate)
     case (FLOAT_STD)
-        "IEEE_754_32": begin: LCL
-            localparam FLOAT_WIDTH_EXPONENT = 8;
-            localparam FLOAT_EXPONENT_BIAS = $pow(2,7)-1;
-            localparam FLOAT_WIDTH_MANTISSA = 23;
-            localparam FLOAT_LEADING_BIT = 1;
-            localparam FLOAT_WIDTH_MANTISSA_NORM = FLOAT_WIDTH_MANTISSA + 1;
+        FLOAT_STD_IEEE_754_32: begin: LCL
+            localparam FLOAT_WIDTH_EXPONENT = fun_float_width_exponent(FLOAT_STD);
+            localparam FLOAT_EXPONENT_BIAS = fun_float_exponent_bias(FLOAT_STD);
+            localparam FLOAT_WIDTH_MANTISSA = fun_float_width_mantissa(FLOAT_STD);
+            localparam FLOAT_LEADING_BIT = fun_float_leading_bit(FLOAT_STD);
+            localparam FLOAT_WIDTH_MANTISSA_NORM = fun_float_width_mantissa_norm(FLOAT_STD);
         end
-        "IEEE_754_64": begin: LCL
-            localparam FLOAT_WIDTH_EXPONENT = 11;
-            localparam FLOAT_EXPONENT_BIAS = $pow(2,10)-1;
-            localparam FLOAT_WIDTH_MANTISSA = 52;
-            localparam FLOAT_LEADING_BIT = 1;
-            localparam FLOAT_WIDTH_MANTISSA_NORM = FLOAT_WIDTH_MANTISSA + 1;
+        FLOAT_STD_IEEE_754_64: begin: LCL
+            localparam FLOAT_WIDTH_EXPONENT = fun_float_width_exponent(FLOAT_STD);
+            localparam FLOAT_EXPONENT_BIAS = fun_float_exponent_bias(FLOAT_STD);
+            localparam FLOAT_WIDTH_MANTISSA = fun_float_width_mantissa(FLOAT_STD);
+            localparam FLOAT_LEADING_BIT = fun_float_leading_bit(FLOAT_STD);
+            localparam FLOAT_WIDTH_MANTISSA_NORM = fun_float_width_mantissa_norm(FLOAT_STD);
         end
         default: begin: LCL
             localparam FLOAT_WIDTH_EXPONENT = FLOAT_WIDTH_EXPONENT;
@@ -99,8 +101,6 @@ module float_to_fp #(
     logic   [LCL.FLOAT_WIDTH_MANTISSA-1:0]      float_mantissa;
     logic   [LCL.FLOAT_WIDTH_EXPONENT-1:0]      float_exponent;
     logic                                       float_sign_bit;
-    logic   [FP_WIDTH_INT-1:0]                  fp_int;
-    logic   [FP_WIDTH_FRAC-1:0]                 fp_frac;
 
     logic   [FP_WIDTH-2:0]                      fp_no_sign;
     // helper for type cast to avoid signal width warning
@@ -116,6 +116,7 @@ module float_to_fp #(
 
     logic   [$clog2(LCL.FLOAT_WIDTH_MANTISSA)-1:0]      shift_mantissa_bits;
     logic                                               shift_mantissa_dir;
+
 
     //----------------------------------------------------------
     // OPERATION
