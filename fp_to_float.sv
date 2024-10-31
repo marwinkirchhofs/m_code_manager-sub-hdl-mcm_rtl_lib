@@ -42,8 +42,7 @@ module fp_to_float #(
 ) (
     input logic     [FP_WIDTH-1:0]          i_fp,
     output logic    [FLOAT_WIDTH-1:0]       o_float,
-    output logic                            o_denormalized_number,
-    output logic                            o_zero
+    output flags_fp_to_float_t              o_flags
 );
 
     // (in fact, this is a generate statement. You just can't surround it by 
@@ -156,8 +155,8 @@ module fp_to_float #(
     end endgenerate
 
     always_comb begin: proc_output_float
-        o_denormalized_number = 1'b0;
-        o_zero = 1'b0;
+        o_flags.denormalized = 1'b0;
+        o_flags.zero = 1'b0;
         // TODO: if you can turn that as much as possible of that if chain into 
         // a case statement for better synthesizability
 
@@ -166,11 +165,11 @@ module fp_to_float #(
         // since fp_leading_zeros is not a signed datatype)
         if ({fp_int, fp_frac} == '0) begin
             o_float = {float_sign_bit, {FLOAT_WIDTH-1{1'b0}}};
-            o_zero = 1'b1;
+            o_flags.zero = 1'b1;
         end else if (fp_leading_zeros+LCL.FLOAT_LEADING_BIT >=
                         LCL.FLOAT_EXPONENT_BIAS+FP_WIDTH_INT) begin
             o_float = float_denormalized;
-            o_denormalized_number = 1'b1;
+            o_flags.denormalized = 1'b1;
         end else begin
             o_float = {float_sign_bit, float_exponent, float_mantissa};
         end

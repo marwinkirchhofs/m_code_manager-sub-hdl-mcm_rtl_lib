@@ -56,11 +56,7 @@ module float_to_fp #(
 ) (
     input logic     [FLOAT_WIDTH-1:0]       i_float,
     output logic    [FP_WIDTH-1:0]          o_fp,
-    output logic                            o_overflow,
-    output logic                            o_zero,
-    output logic                            o_denormalized_number,
-    output logic                            o_infinity,
-    output logic                            o_nan
+    output flags_float_to_fp_t              o_flags
 );
 
     // (in fact, this is a generate statement. You just can't surround it by 
@@ -239,15 +235,15 @@ module float_to_fp #(
         // a meaningful o_fp, raise the corresponding (and leave it to the 
         // parent core to process those as they wish)
         o_fp                    = '0;
-        o_zero                  = 1'b0;
-        o_denormalized_number   = 1'b0;
-        o_infinity              = 1'b0;
-        o_nan                   = 1'b0;
+        o_flags.zero            = 1'b0;
+        o_flags.denormalized    = 1'b0;
+        o_flags.infinity        = 1'b0;
+        o_flags.nan             = 1'b0;
         case (float_exponent)
             {(LCL.FLOAT_WIDTH_EXPONENT){1'b0}}: begin
                 if (float_mantissa == '0) begin
                     // ALL 0'S - FLOATING POINT DEFINED 0
-                    o_zero = 1'b1;
+                    o_flags.zero = 1'b1;
                     if (FP_2S_COMPLEMENT) begin
                         // for 2's complement no need to differentiate between 
                         // positive and negative 0, there is only one
@@ -282,16 +278,16 @@ module float_to_fp #(
 //                         end
 //                     end
                     o_fp = fp_denorm;
-                    o_denormalized_number = 1'b1;
+                    o_flags.denormalized = 1'b1;
                 end
             end
             {(LCL.FLOAT_WIDTH_EXPONENT){1'b1}}: begin
                 if (float_mantissa == '0) begin
                     // INFINITY
-                    o_infinity = 1'b1;
+                    o_flags.infinity = 1'b1;
                 end else begin
                     // NAN
-                    o_nan = 1'b1;
+                    o_flags.nan = 1'b1;
                 end
             end
             default: begin
@@ -308,7 +304,7 @@ module float_to_fp #(
     // when is there an overflow? Of course if we have to shift more than there 
     // is space, but: That would also be the case for the reserved exponents 
     // (all 1's and all 0's). Thus exclude those cases.
-    assign o_overflow =
+    assign o_flags.overflow =
                 (shift_mantissa_bits > (FP_WIDTH_INT-LCL.FLOAT_LEADING_BIT)) &
                 !(float_exponent == '0) & !(float_exponent == '1);
 

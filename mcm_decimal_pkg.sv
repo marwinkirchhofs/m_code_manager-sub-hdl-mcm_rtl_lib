@@ -7,6 +7,19 @@ package mcm_decimal_pkg;
         FLOAT_STD_NONE
     } enum_float_std_t;
 
+    typedef struct packed {
+        logic           overflow;
+        logic           zero;
+        logic           denormalized;
+        logic           infinity;
+        logic           nan;
+    } flags_float_to_fp_t;
+
+    typedef struct packed {
+        logic           denormalized;
+        logic           zero;
+    } flags_fp_to_float_t;
+
     // parameters for floating point standards (effectively, this set of 
     // functions represents an associative array)
     function automatic integer fun_float_width_exponent(enum_float_std_t float_std);
