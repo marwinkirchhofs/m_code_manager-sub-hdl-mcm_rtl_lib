@@ -141,17 +141,6 @@ module float_to_fp #(
         end
     end
 
-    generate begin: gen_overflow
-        // - when determining an overflow need to take into account whether or 
-        // not there is a silent leading bit in the mantissa, because if there 
-        // is that takes away the first FP_WIDTH_INT bit from shifting
-        if (LCL.FLOAT_LEADING_BIT == 1) begin
-            assign overflow = shift_mantissa_bits > (FP_WIDTH_INT-1);
-        end else begin
-            assign overflow = shift_mantissa_bits > (FP_WIDTH_INT);
-        end
-    end endgenerate
-
     // TODO: make the parameter comparisons generate to remove invalid index 
     // warnings
     always_comb begin
@@ -253,30 +242,6 @@ module float_to_fp #(
                     end
                 end else begin
                     // DENORMALIZED NUMBER (leading 0's in mantissa)
-//                     // TODO: you actually have to shift the mantissa by (bias-1) 
-//                     // before assigning it to the fractional part. Plan: create 
-//                     // a temporary variable for the pre-2s compl mantissa, shift 
-//                     // the mantissa accordingly, and then apply 2s complement 
-//                     // after resolving mantissa vs frac width. And put that part 
-//                     // with the temporary variable into an external generate 
-//                     // statement.
-//                     if (LCL.FLOAT_WIDTH_MANTISSA >= FP_WIDTH_FRAC) begin
-//                         if (FP_2S_COMPLEMENT && float_sign_bit) begin
-//                             o_fp = ~{1'b0, {FP_WIDTH_INT{1'b0}},
-//                                     float_mantissa[LCL.FLOAT_WIDTH_MANTISSA-1 -: FP_WIDTH_FRAC]}+1;
-//                         end else begin
-//                             o_fp = {float_sign_bit, {FP_WIDTH_INT{1'b0}},
-//                                     float_mantissa[LCL.FLOAT_WIDTH_MANTISSA-1 -: FP_WIDTH_FRAC]};
-//                         end
-//                     end else begin
-//                         if (FP_2S_COMPLEMENT && float_sign_bit) begin
-//                             o_fp = ~{1'b0, {FP_WIDTH_INT{1'b0}}, float_mantissa,
-//                                     {(FP_WIDTH_FRAC-LCL.FLOAT_WIDTH_MANTISSA){1'b0}}}+1;
-//                         end else begin
-//                             o_fp = {float_sign_bit, {FP_WIDTH_INT{1'b0}}, float_mantissa,
-//                                     {(FP_WIDTH_FRAC-LCL.FLOAT_WIDTH_MANTISSA){1'b0}}};
-//                         end
-//                     end
                     o_fp = fp_denorm;
                     o_flags.denormalized = 1'b1;
                 end
