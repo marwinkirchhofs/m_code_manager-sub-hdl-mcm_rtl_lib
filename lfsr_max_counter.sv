@@ -153,7 +153,7 @@ module lfsr_max_counter #(
            88: begin: LCL           localparam int TAP_INDICES [4] = '{16,17,87,88}; end
            89: begin: LCL           localparam int TAP_INDICES [2] = '{51,89}; end
            90: begin: LCL           localparam int TAP_INDICES [4] = '{71,72,89,90}; end
-           91: begin: LCL           localparam int TAP_INDICES [2] = '{7,8,90,91}; end
+           91: begin: LCL           localparam int TAP_INDICES [4] = '{7,8,90,91}; end
            92: begin: LCL           localparam int TAP_INDICES [4] = '{79,80,91,92}; end
            93: begin: LCL           localparam int TAP_INDICES [2] = '{91,93}; end
            94: begin: LCL           localparam int TAP_INDICES [2] = '{73,94}; end
