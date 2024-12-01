@@ -70,8 +70,7 @@ $error("This function does not support more than 256 operands. (Feel free to ext
         // intermediary registers
         latency_levels = num_levels + latency_interm_reg;
 
-//         return num_levels * (1+combined_out_reg);
-        return num_levels + combined_out_reg;
+        return latency_levels + combined_out_reg;
     endfunction
 
     /*
