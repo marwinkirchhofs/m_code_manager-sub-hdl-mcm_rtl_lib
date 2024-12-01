@@ -101,26 +101,23 @@ module accum_tree #(
         // to the widest necessary connection (layer NUM_LEVELS-1 to layer 
         // NUM_LEVELS-2), and for the narrower connections ignore the unused 
         // signals.
-//         logic [DATA_WIDTH-1:0] level_inputs [NUM_LEVELS][int'($pow(4, NUM_LEVELS-1))];
         logic [DATA_WIDTH-1:0] level_inputs [NUM_LEVELS][NUM_INPUTS_POW4];
 
         for (i=0; i<NUM_INPUTS_POW4; i++) begin
             assign level_inputs[NUM_LEVELS-1][i] = operands_pow4[i];
         end
 
-        for (i=0; i<NUM_LEVELS; i++) begin
-            for (j=0; j<int'($pow(4, i)); j++) begin
+        for (i=0; i<NUM_LEVELS; i++) begin: gen_levels
+            for (j=0; j<int'($pow(4, i)); j++) begin: gen_dsps
 
                 logic [DATA_WIDTH-1:0]      operands_in [4];
-                for (k=0; k<4; k++) begin
-//                     assign operands_in[k] = (i == NUM_LEVELS-1) ?
-//                                             operands_pow4[j*4+k] : level_inputs[i][j*4+k];
+                for (k=0; k<4; k++) begin: gen_level_inputs
                     assign operands_in[k] = level_inputs[i][j*4+k];
                 end
 
                 logic [DATA_WIDTH-1:0]      operand_out;
-                if (i == 0) begin
-                    assign o_result[j] = operand_out;
+                if (i == 0) begin: gen_level_output
+                    assign o_result = operand_out;
                 end else begin
                     assign level_inputs[i-1][j] = operand_out;
                 end
@@ -134,7 +131,7 @@ module accum_tree #(
                 ) inst_accum_4_operand (
                     .clk                    (clk),
                     .rst_n                  (i==0 ? rst_n : 1'b1),
-                    .i_accumulate           (i==0 ? accum_tree_accumulate_en : 1'b0),
+                    .i_accumulate           (i==0 ? i_accumulate : 1'b0),
                     .i_operands             (operands_in),
                     .o_result               (operand_out)
                 );
