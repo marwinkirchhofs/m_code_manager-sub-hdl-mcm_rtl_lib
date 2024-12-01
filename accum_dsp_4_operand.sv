@@ -40,19 +40,13 @@
 *		[port name]		- [port description]
 * :i_accumulate: activates the master DSP's internal result feedback path to the 
 * adder input. Remember to only activate as long as you need it, because in 
-* order to reset the circuit, accumulation needs to be deactivated. 
+* order to reset the circuit, accumulation needs to be deactivated.
 *
-* :ACCUMULATE_EN: if 1, enables circuitry for accumulating results over multiple 
+* ACCUMULATE_EN: if 1, enables circuitry for accumulating results over multiple 
 * circles. Implications: If set to 1, OUT_REG has no effect (always acts as 
 * OUT_REG=1 because the register is required for accumulation). If 0, 
 * i_accumulate is ignored.
-* :RST_EN: (NOT IMPLEMENTED) if set to 1, the output reset is available via 
-* rst_n (allowing for resetting an accumulating circuit without deasserting 
-* i_accumulate). Has no effect if not (OUT_REG==1 || ACCUMULATE_EN==1), because 
-* in those cases the register to be reset is deactivated
-* :OPMODE_REG: activates the DSP OPMODEREG, with the effect that i_accumulate 
-* has a 1-cycle latency in taking effect. May help with timing, or with cycle 
-* alignment of certain applications.
+*
 */
 
 import mcm_math_pkg::*;

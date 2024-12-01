@@ -30,9 +30,9 @@ package mcm_math_pkg;
 // 
 //         return num_levels * (1+combined_out_reg);
 //     endfunction
-    function int accum_tree_get_latency(int num_operands, int accumulate_en, int out_reg);
+    function int accum_tree_get_num_levels(int num_operands);
+
         automatic int num_levels = 1;
-        automatic int combined_out_reg;
 
         if (num_operands > 256) begin
 $error("This function does not support more than 256 operands. (Feel free to extend it accordingly)");
@@ -44,10 +44,59 @@ $error("This function does not support more than 256 operands. (Feel free to ext
             num_levels = 3;
         end else if (num_operands > 4) begin
             num_levels = 2;
+        end else begin
+            num_levels = 1;
         end
+        return num_levels;
+    endfunction
+
+    function int accum_tree_get_latency(
+            int num_operands, int accumulate_en, int out_reg, int interm_reg);
+        automatic int combined_out_reg;
+        automatic int num_levels = accum_tree_get_num_levels(num_operands);
+        automatic int latency_levels;
+        automatic int latency_interm_reg;
+
         combined_out_reg = (accumulate_en || out_reg) ? 1 : 0;
 
-        return num_levels * (1+combined_out_reg);
+        // latency_interm_reg: contribution caused by intermediary out registers 
+        // (thus additionally to the one cycle that every level always causes)
+        if (num_levels > 0) begin
+            latency_interm_reg = (num_levels-1) * (interm_reg);
+        end else begin
+            latency_interm_reg = 0;
+        end
+        // one cycle because every level has a DSP cascade, on top of that 
+        // intermediary registers
+        latency_levels = num_levels + latency_interm_reg;
+
+//         return num_levels * (1+combined_out_reg);
+        return num_levels + combined_out_reg;
+    endfunction
+
+    /*
+    * round up to the next power of 4 - again with respect to the fact that 
+    * apparently questa does not allow system function calls in constant 
+    * functions.
+    */
+    function int accum_tree_get_num_operands_pow4(int num_operands);
+
+        automatic int num_operands_pow4;
+
+        if (num_operands > 256) begin
+$error("This function does not support more than 256 operands. (Feel free to extend it accordingly)");
+        end
+
+        if (num_operands > 64) begin
+            num_operands_pow4 = 256;
+        end else if (num_operands > 16) begin
+            num_operands_pow4 = 64;
+        end else if (num_operands > 4) begin
+            num_operands_pow4 = 16;
+        end else begin
+            num_operands_pow4 = 4;
+        end
+        return num_operands_pow4;
     endfunction
 
 endpackage // mcm_math_pkg
