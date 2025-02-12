@@ -51,7 +51,22 @@ module float_to_fp #(
     parameter                   FP_WIDTH_INT = 8,
     parameter                   FP_WIDTH_FRAC = 7,
     parameter                   FP_2S_COMPLEMENT = 1,
-    localparam FLOAT_WIDTH = 1 + LCL.FLOAT_WIDTH_EXPONENT + LCL.FLOAT_WIDTH_MANTISSA,
+    localparam LCL_FLOAT_WIDTH_EXPONENT =       (FLOAT_STD == FLOAT_STD_NONE) ?
+                                                FLOAT_WIDTH_EXPONENT :
+                                                fun_float_width_exponent(FLOAT_STD),
+    localparam LCL_FLOAT_EXPONENT_BIAS =        (FLOAT_STD == FLOAT_STD_NONE) ?
+                                                FLOAT_EXPONENT_BIAS :
+                                                fun_float_exponent_bias(FLOAT_STD),
+    localparam LCL_FLOAT_WIDTH_MANTISSA =       (FLOAT_STD == FLOAT_STD_NONE) ?
+                                                FLOAT_WIDTH_MANTISSA :
+                                                fun_float_width_mantissa(FLOAT_STD),
+    localparam LCL_FLOAT_LEADING_BIT =          (FLOAT_STD == FLOAT_STD_NONE) ?
+                                                FLOAT_LEADING_BIT :
+                                                fun_float_leading_bit(FLOAT_STD),
+    localparam LCL_FLOAT_WIDTH_MANTISSA_NORM =  (FLOAT_STD == FLOAT_STD_NONE) ?
+                                                FLOAT_WIDTH_MANTISSA + FLOAT_LEADING_BIT :
+                                                fun_float_width_mantissa_norm(FLOAT_STD),
+    localparam FLOAT_WIDTH = 1 + LCL_FLOAT_WIDTH_EXPONENT + LCL_FLOAT_WIDTH_MANTISSA,
     localparam FP_WIDTH = 1 + FP_WIDTH_INT + FP_WIDTH_FRAC
 ) (
     input logic     [FLOAT_WIDTH-1:0]       i_float,
@@ -59,41 +74,12 @@ module float_to_fp #(
     output flags_float_to_fp_t              o_flags
 );
 
-    // (in fact, this is a generate statement. You just can't surround it by 
-    // a `generate` because then resolving the hierarchical `LCL` doesn't work 
-    // anymore. Guess you'd have to then add the gen name to the hierarchical 
-    // reference, but I rather just removed the generate)
-    case (FLOAT_STD)
-        FLOAT_STD_IEEE_754_32: begin: LCL
-            localparam FLOAT_WIDTH_EXPONENT = fun_float_width_exponent(FLOAT_STD);
-            localparam FLOAT_EXPONENT_BIAS = fun_float_exponent_bias(FLOAT_STD);
-            localparam FLOAT_WIDTH_MANTISSA = fun_float_width_mantissa(FLOAT_STD);
-            localparam FLOAT_LEADING_BIT = fun_float_leading_bit(FLOAT_STD);
-            localparam FLOAT_WIDTH_MANTISSA_NORM = fun_float_width_mantissa_norm(FLOAT_STD);
-        end
-        FLOAT_STD_IEEE_754_64: begin: LCL
-            localparam FLOAT_WIDTH_EXPONENT = fun_float_width_exponent(FLOAT_STD);
-            localparam FLOAT_EXPONENT_BIAS = fun_float_exponent_bias(FLOAT_STD);
-            localparam FLOAT_WIDTH_MANTISSA = fun_float_width_mantissa(FLOAT_STD);
-            localparam FLOAT_LEADING_BIT = fun_float_leading_bit(FLOAT_STD);
-            localparam FLOAT_WIDTH_MANTISSA_NORM = fun_float_width_mantissa_norm(FLOAT_STD);
-        end
-        default: begin: LCL
-            localparam FLOAT_WIDTH_EXPONENT = FLOAT_WIDTH_EXPONENT;
-            localparam FLOAT_EXPONENT_BIAS = FLOAT_EXPONENT_BIAS;
-            localparam FLOAT_WIDTH_MANTISSA = FLOAT_WIDTH_MANTISSA;
-            localparam FLOAT_LEADING_BIT = FLOAT_LEADING_BIT;
-            localparam FLOAT_WIDTH_MANTISSA_NORM = FLOAT_WIDTH_MANTISSA + FLOAT_LEADING_BIT;
-        end
-    endcase
-
-
     //----------------------------------------------------------
     // INTERNAL SIGNALS
     //----------------------------------------------------------
 
-    logic   [LCL.FLOAT_WIDTH_MANTISSA-1:0]      float_mantissa;
-    logic   [LCL.FLOAT_WIDTH_EXPONENT-1:0]      float_exponent;
+    logic   [LCL_FLOAT_WIDTH_MANTISSA-1:0]      float_mantissa;
+    logic   [LCL_FLOAT_WIDTH_EXPONENT-1:0]      float_exponent;
     logic                                       float_sign_bit;
 
     logic   [FP_WIDTH-2:0]                      fp_no_sign;
@@ -104,15 +90,15 @@ module float_to_fp #(
 
     // variable to hold the mantissa extended by the hidden leading bit if there 
     // is one
-    logic   [LCL.FLOAT_WIDTH_MANTISSA_NORM-1:0] float_mantissa_norm;
+    logic   [LCL_FLOAT_WIDTH_MANTISSA_NORM-1:0] float_mantissa_norm;
     // hold the fixed-point number for a denormalized floating point number
     logic   [FP_WIDTH-1:0]                      fp_denorm;
 
-    assign float_mantissa = i_float[LCL.FLOAT_WIDTH_MANTISSA-1:0];
-    assign float_exponent = i_float[LCL.FLOAT_WIDTH_MANTISSA +: LCL.FLOAT_WIDTH_EXPONENT];
+    assign float_mantissa = i_float[LCL_FLOAT_WIDTH_MANTISSA-1:0];
+    assign float_exponent = i_float[LCL_FLOAT_WIDTH_MANTISSA +: LCL_FLOAT_WIDTH_EXPONENT];
     assign float_sign_bit = i_float[FLOAT_WIDTH-1];
 
-    logic   [$clog2(LCL.FLOAT_WIDTH_MANTISSA)-1:0]      shift_mantissa_bits;
+    logic   [$clog2(LCL_FLOAT_WIDTH_MANTISSA)-1:0]      shift_mantissa_bits;
     logic                                               shift_mantissa_dir;
 
 
@@ -132,11 +118,11 @@ module float_to_fp #(
         // note: shift_mantissa_bits is the *absolute value* of the 
         // bias-corrected float_exponent - the amount of bits that the mantissa 
         // needs to be shifted into *or* out of the fixed point integer part
-        if (float_exponent >= LCL.FLOAT_EXPONENT_BIAS) begin
-            shift_mantissa_bits = float_exponent - LCL.FLOAT_EXPONENT_BIAS;
+        if (float_exponent >= LCL_FLOAT_EXPONENT_BIAS) begin
+            shift_mantissa_bits = float_exponent - LCL_FLOAT_EXPONENT_BIAS;
             shift_mantissa_dir = 1'b1;
         end else begin
-            shift_mantissa_bits = LCL.FLOAT_EXPONENT_BIAS - float_exponent;
+            shift_mantissa_bits = LCL_FLOAT_EXPONENT_BIAS - float_exponent;
             shift_mantissa_dir = 1'b0;
         end
     end
@@ -156,33 +142,33 @@ module float_to_fp #(
             // shift fits into the integer range, because if it doesn't, the 
             // result is useless whatever you do, and we have the o_overflow 
             // flag for that
-            if (LCL.FLOAT_WIDTH_MANTISSA_NORM >= (FP_WIDTH-1)) begin
-                fp_no_sign = float_mantissa_norm[LCL.FLOAT_WIDTH_MANTISSA_NORM-1 -: FP_WIDTH-1]>>
-                                (FP_WIDTH_INT-LCL.FLOAT_LEADING_BIT-shift_mantissa_bits);
+            if (LCL_FLOAT_WIDTH_MANTISSA_NORM >= (FP_WIDTH-1)) begin
+                fp_no_sign = float_mantissa_norm[LCL_FLOAT_WIDTH_MANTISSA_NORM-1 -: FP_WIDTH-1]>>
+                                (FP_WIDTH_INT-LCL_FLOAT_LEADING_BIT-shift_mantissa_bits);
             end else begin
                 // (if mantissa is narrower than the non-signed fixed-point, 
                 // instead of cropping it, extend it to that size before 
                 // shifting)
                 fp_no_sign = ({ float_mantissa_norm,
-                                {(FP_WIDTH-1-LCL.FLOAT_WIDTH_MANTISSA_NORM){1'b0}}})>>
-                                (FP_WIDTH_INT-LCL.FLOAT_LEADING_BIT-shift_mantissa_bits);
+                                {(FP_WIDTH-1-LCL_FLOAT_WIDTH_MANTISSA_NORM){1'b0}}})>>
+                                (FP_WIDTH_INT-LCL_FLOAT_LEADING_BIT-shift_mantissa_bits);
             end
         end else begin
             // ugly shift, quick explanation: first cut float_mantissa_norm to 
-            // only the FP_WIDTH_FRAC+LCL.FLOAT_LEADING_BIT bits (because 
+            // only the FP_WIDTH_FRAC+LCL_FLOAT_LEADING_BIT bits (because 
             // anything below that is below the fp precision anyways), then 
             // right-shift that according to what we need
 
             // (testing for FLOAT_WIDTH_MANTISSA_NORM >= 
             // FP_WIDTH_FRAC+FLOAT_LEADING_BIT is equivalent)
-            if (LCL.FLOAT_WIDTH_MANTISSA >= FP_WIDTH_FRAC) begin
+            if (LCL_FLOAT_WIDTH_MANTISSA >= FP_WIDTH_FRAC) begin
                 fp_no_sign = fp_no_sign_t'(
                         float_mantissa_norm[
-                            LCL.FLOAT_WIDTH_MANTISSA_NORM-1 -: FP_WIDTH_FRAC+LCL.FLOAT_LEADING_BIT]
+                            LCL_FLOAT_WIDTH_MANTISSA_NORM-1 -: FP_WIDTH_FRAC+LCL_FLOAT_LEADING_BIT]
                             >>shift_mantissa_bits);
             end else begin
                 fp_no_sign = fp_no_sign_t'(
-                        ({float_mantissa_norm, {(FP_WIDTH_FRAC-LCL.FLOAT_WIDTH_MANTISSA){1'b1}}})
+                        ({float_mantissa_norm, {(FP_WIDTH_FRAC-LCL_FLOAT_WIDTH_MANTISSA){1'b1}}})
                             >>shift_mantissa_bits);
             end
         end
@@ -195,13 +181,13 @@ module float_to_fp #(
         // keep in mind: the lowest possible exponent is bias-1 because all 0's 
         // is reserved - shift the mantissa by (bias-1), not by bias
         
-        if (LCL.FLOAT_WIDTH_MANTISSA >= FP_WIDTH_FRAC) begin
-            assign fp_frac_denorm = {float_mantissa>>(LCL.FLOAT_EXPONENT_BIAS-1)}
-                                    [LCL.FLOAT_WIDTH_MANTISSA-1 -: FP_WIDTH_FRAC];
+        if (LCL_FLOAT_WIDTH_MANTISSA >= FP_WIDTH_FRAC) begin
+            assign fp_frac_denorm = {float_mantissa>>(LCL_FLOAT_EXPONENT_BIAS-1)}
+                                    [LCL_FLOAT_WIDTH_MANTISSA-1 -: FP_WIDTH_FRAC];
         end else begin
             assign fp_frac_denorm = {float_mantissa,
-                                        {(FP_WIDTH_FRAC-LCL.FLOAT_WIDTH_MANTISSA){1'b0}}}>>
-                                    (LCL.FLOAT_EXPONENT_BIAS-1);
+                                        {(FP_WIDTH_FRAC-LCL_FLOAT_WIDTH_MANTISSA){1'b0}}}>>
+                                    (LCL_FLOAT_EXPONENT_BIAS-1);
         end
 
         if (FP_2S_COMPLEMENT) begin
@@ -229,7 +215,7 @@ module float_to_fp #(
         o_flags.infinity        = 1'b0;
         o_flags.nan             = 1'b0;
         case (float_exponent)
-            {(LCL.FLOAT_WIDTH_EXPONENT){1'b0}}: begin
+            {(LCL_FLOAT_WIDTH_EXPONENT){1'b0}}: begin
                 if (float_mantissa == '0) begin
                     // ALL 0'S - FLOATING POINT DEFINED 0
                     o_flags.zero = 1'b1;
@@ -246,7 +232,7 @@ module float_to_fp #(
                     o_flags.denormalized = 1'b1;
                 end
             end
-            {(LCL.FLOAT_WIDTH_EXPONENT){1'b1}}: begin
+            {(LCL_FLOAT_WIDTH_EXPONENT){1'b1}}: begin
                 if (float_mantissa == '0) begin
                     // INFINITY
                     o_flags.infinity = 1'b1;
@@ -270,7 +256,7 @@ module float_to_fp #(
     // is space, but: That would also be the case for the reserved exponents 
     // (all 1's and all 0's). Thus exclude those cases.
     assign o_flags.overflow =
-                (shift_mantissa_bits > (FP_WIDTH_INT-LCL.FLOAT_LEADING_BIT)) &
+                (shift_mantissa_bits > (FP_WIDTH_INT-LCL_FLOAT_LEADING_BIT)) &
                 !(float_exponent == '0) & !(float_exponent == '1);
 
     //----------------------------------------------------------
