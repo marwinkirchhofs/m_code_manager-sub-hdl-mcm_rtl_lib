@@ -22,6 +22,21 @@
 *   -> see float_to_fp module, the parameters are the same and behave in the 
 *   same way
 *
+* IMPLEMENTATION:
+* (some vivado implementation results - isolated synthesis/implementation 
+* (module directly surrounded by input and output registers)
+* * 27bit fp (1/1/25 sign/int/frac), FLOAT_STD_IEEE_754_64
+*     * Ultrascale+ (xcvu37p-fsvh2892-2L-e), 450MHz
+*         * default strategies: WNS -0.016ns, WHS 0.041ns, 193LUTs, (63FFs)
+*         * synth flow_perfoptimized_high, impl 
+*         performance_explorePostRoutePhysOpt: WNS 0.070ns, WHS 0.026ns, 191LUTs, 
+*         (63FFs)
+*     * 7series (xc7z020clg484-1), 150MHz
+*         * default strategies: WNS -0.365ns, WHS -0.575ns, 193LUTs, (63FFs)
+*         * synth flow_perfoptimized_high, impl 
+*         performance_explorePostRoutePhysOpt: WNS 0.003ns, WHS 0.308ns, 192LUTs, 
+*         (63FFs)
+*
 * TODO: untested with any non-ieee formats
 * TODO: add parameterizable input registers
 */
