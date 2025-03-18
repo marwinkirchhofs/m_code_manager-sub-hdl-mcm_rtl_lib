@@ -33,6 +33,19 @@
 *   (standard signed int otherwise)
 *   :FLOAT_LEADING_BIT: whether or not a leading 1 is added to the mantissa 
 *   (make sure to only set to either 0 or 1)
+*
+* IMPLEMENTATION:
+* (some vivado implementation results - isolated synthesis/implementation 
+* (module directly surrounded by input and output registers)
+* * 27bit fp (1/1/25 sign/int/frac), FLOAT_STD_IEEE_754_64
+*     * Ultrascale+ (xcvu37p-fsvh2892-2L-e), 450MHz
+*         * default strategies: WNS 0.004ns, WHS 0.085ns, 178LUTs
+*         * synth flow_perfoptimized_high, impl 
+*         performance_explorePostRoutePhysOpt: (untested)
+*     * 7series (xc7z020clg484-1), 150MHz
+*         * default strategies: WNS 0.315ns, WHS 0.555ns, LUTs
+*         * synth flow_perfoptimized_high, impl 
+*         performance_explorePostRoutePhysOpt: (untested)
 * 
 * TODO: provide input registers, if I had to guess I'd say that the fanout from 
 * the input mantissa to the dynamic shift LUTs can become pretty ugly
@@ -46,7 +59,7 @@ module float_to_fp #(
     parameter enum_float_std_t  FLOAT_STD = FLOAT_STD_NONE,
     parameter                   FLOAT_WIDTH_EXPONENT = 8,
     parameter                   FLOAT_WIDTH_MANTISSA = 24,
-    parameter                   FLOAT_EXPONENT_BIAS = $pow(2,7)-1,
+    parameter                   FLOAT_EXPONENT_BIAS = int'($pow(2,7)-1),
     parameter                   FLOAT_LEADING_BIT = 1,
     parameter                   FP_WIDTH_INT = 8,
     parameter                   FP_WIDTH_FRAC = 7,

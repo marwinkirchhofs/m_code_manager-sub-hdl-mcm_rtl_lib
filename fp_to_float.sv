@@ -26,11 +26,19 @@
 * (some vivado implementation results - isolated synthesis/implementation 
 * (module directly surrounded by input and output registers)
 * * 27bit fp (1/1/25 sign/int/frac), FLOAT_STD_IEEE_754_64
-*     * Ultrascale+ (xcvu37p-fsvh2892-2L-e), 450MHz
-*         * default strategies: WNS -0.016ns, WHS 0.041ns, 193LUTs, (63FFs)
-*         * synth flow_perfoptimized_high, impl 
-*         performance_explorePostRoutePhysOpt: WNS 0.070ns, WHS 0.026ns, 191LUTs, 
-*         (63FFs)
+*     * Ultrascale+ (xcvu37p-fsvh2892-2L-e)
+*         * 450MHz
+*           * default strategies: WNS -0.016ns, WHS 0.041ns, 193LUTs, (63FFs)
+*           * synth flow_perfoptimized_high, impl 
+*           performance_explorePostRoutePhysOpt: WNS 0.070ns, WHS 0.026ns, 191LUTs, 
+*           (63FFs)
+*         * 465MHz (and 500MHz)
+*           * synth flow_perfoptimized_high, impl 
+*           performance_explorePostRoutePhysOpt: failed (WNS 0.236ns @500MHz)
+*         * 460MHz
+*           * synth flow_perfoptimized_high, impl 
+*           performance_explorePostRoutePhysOpt: WNS 0.034ns, WHS 0.063ns, 
+*           192LUTs, (63FFs)
 *     * 7series (xc7z020clg484-1), 150MHz
 *         * default strategies: WNS -0.365ns, WHS -0.575ns, 193LUTs, (63FFs)
 *         * synth flow_perfoptimized_high, impl 
@@ -47,7 +55,7 @@ module fp_to_float #(
     parameter enum_float_std_t  FLOAT_STD = FLOAT_STD_NONE,
     parameter                   FLOAT_WIDTH_EXPONENT = 8,
     parameter                   FLOAT_WIDTH_MANTISSA = 24,
-    parameter                   FLOAT_EXPONENT_BIAS = $pow(2,7)-1,
+    parameter                   FLOAT_EXPONENT_BIAS = int'($pow(2,7)-1),
     parameter                   FLOAT_LEADING_BIT = 1,
     parameter                   FP_WIDTH_INT = 8,
     parameter                   FP_WIDTH_FRAC = 7,
