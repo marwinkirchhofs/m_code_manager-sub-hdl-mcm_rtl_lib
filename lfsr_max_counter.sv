@@ -33,9 +33,192 @@
 * TODO: implement a parameterizable reset
 */
 
+/*
+* hold a set of lfsr tap indices -> num_indices is necessary because depending 
+* on bitwidth, there are between 2 and 6 valid indices, but the array is 
+* fixed-size
+*/
+typedef struct {
+    int         num_indices;
+    int         indices [6];
+} tap_indices_t;
+
 module lfsr_max_counter #(
     parameter               BITWIDTH = 4,
-    parameter               ALL_1S_CIRCUIT = 0
+    parameter               ALL_1S_CIRCUIT = 0,
+    // tap indices 1-indexed, for consistency with xilinx documented (indexing 
+    // is corrected when applying the taps)
+    // !!! the valid part of the arrays needs to be in ascending order.  
+    // Otherwise the tap_cascade assigments in the gen statement below don't 
+    // work properly !!!
+    localparam tap_indices_t TAP_INDICES =
+        BITWIDTH == 3 ?     '{num_indices: 2, indices: '{2,3,-1,-1,-1,-1}} :
+        BITWIDTH == 4 ?     '{num_indices: 2, indices: '{3,4,-1,-1,-1,-1}} :
+        BITWIDTH == 5 ?     '{num_indices: 2, indices: '{3,5,-1,-1,-1,-1}} :
+        BITWIDTH == 6 ?     '{num_indices: 2, indices: '{5,6,-1,-1,-1,-1}} :
+        BITWIDTH == 7 ?     '{num_indices: 2, indices: '{6,7,-1,-1,-1,-1}} :
+        BITWIDTH == 8 ?     '{num_indices: 4, indices: '{4,5,6,8,-1,-1}} :
+        BITWIDTH == 9 ?     '{num_indices: 2, indices: '{5,9,-1,-1,-1,-1}} :
+        BITWIDTH == 10 ?    '{num_indices: 2, indices: '{7,10,-1,-1,-1,-1}} :
+        BITWIDTH == 11 ?    '{num_indices: 2, indices: '{9,11,-1,-1,-1,-1}} :
+        BITWIDTH == 12 ?    '{num_indices: 4, indices: '{1,4,6,12,-1,-1}} :
+        BITWIDTH == 13 ?    '{num_indices: 4, indices: '{1,3,4,13,-1,-1}} :
+        BITWIDTH == 14 ?    '{num_indices: 4, indices: '{1,3,5,14,-1,-1}} :
+        BITWIDTH == 15 ?    '{num_indices: 2, indices: '{14,15,-1,-1,-1,-1}} :
+        BITWIDTH == 16 ?    '{num_indices: 4, indices: '{4,13,15,16,-1,-1}} :
+        BITWIDTH == 17 ?    '{num_indices: 2, indices: '{14,17,-1,-1,-1,-1}} :
+        BITWIDTH == 18 ?    '{num_indices: 2, indices: '{11,18,-1,-1,-1,-1}} :
+        BITWIDTH == 19 ?    '{num_indices: 4, indices: '{1,2,6,19,-1,-1}} :
+        BITWIDTH == 20 ?    '{num_indices: 2, indices: '{17,20,-1,-1,-1,-1}} :
+        BITWIDTH == 21 ?    '{num_indices: 2, indices: '{19,21,-1,-1,-1,-1}} :
+        BITWIDTH == 22 ?    '{num_indices: 2, indices: '{21,22,-1,-1,-1,-1}} :
+        BITWIDTH == 23 ?    '{num_indices: 2, indices: '{18,23,-1,-1,-1,-1}} :
+        BITWIDTH == 24 ?    '{num_indices: 4, indices: '{17,22,23,24,-1,-1}} :
+        BITWIDTH == 25 ?    '{num_indices: 2, indices: '{22,25,-1,-1,-1,-1}} :
+        BITWIDTH == 26 ?    '{num_indices: 4, indices: '{1,2,6,26,-1,-1}} :
+        BITWIDTH == 27 ?    '{num_indices: 4, indices: '{1,2,5,27,-1,-1}} :
+        BITWIDTH == 28 ?    '{num_indices: 2, indices: '{25,28,-1,-1,-1,-1}} :
+        BITWIDTH == 29 ?    '{num_indices: 2, indices: '{27,29,-1,-1,-1,-1}} :
+        BITWIDTH == 30 ?    '{num_indices: 4, indices: '{1,4,6,30,-1,-1}} :
+        BITWIDTH == 31 ?    '{num_indices: 2, indices: '{28,31,-1,-1,-1,-1}} :
+        BITWIDTH == 32 ?    '{num_indices: 4, indices: '{1,2,22,32,-1,-1}} :
+        BITWIDTH == 33 ?    '{num_indices: 2, indices: '{20,33,-1,-1,-1,-1}} :
+        BITWIDTH == 34 ?    '{num_indices: 4, indices: '{1,2,27,34,-1,-1}} :
+        BITWIDTH == 35 ?    '{num_indices: 2, indices: '{33,35,-1,-1,-1,-1}} :
+        BITWIDTH == 36 ?    '{num_indices: 2, indices: '{25,36,-1,-1,-1,-1}} :
+        BITWIDTH == 37 ?    '{num_indices: 6, indices: '{1,2,3,4,5,37}} :
+        BITWIDTH == 38 ?    '{num_indices: 4, indices: '{1,5,6,38,-1,-1}} :
+        BITWIDTH == 39 ?    '{num_indices: 2, indices: '{35,39,-1,-1,-1,-1}} :
+        BITWIDTH == 40 ?    '{num_indices: 4, indices: '{19,21,38,40,-1,-1}} :
+        BITWIDTH == 41 ?    '{num_indices: 2, indices: '{38,41,-1,-1,-1,-1}} :
+        BITWIDTH == 42 ?    '{num_indices: 4, indices: '{19,20,41,42,-1,-1}} :
+        BITWIDTH == 43 ?    '{num_indices: 4, indices: '{37,38,42,43,-1,-1}} :
+        BITWIDTH == 44 ?    '{num_indices: 4, indices: '{17,18,43,44,-1,-1}} :
+        BITWIDTH == 45 ?    '{num_indices: 4, indices: '{41,42,44,45,-1,-1}} :
+        BITWIDTH == 46 ?    '{num_indices: 4, indices: '{25,26,45,46,-1,-1}} :
+        BITWIDTH == 47 ?    '{num_indices: 2, indices: '{42,47,-1,-1,-1,-1}} :
+        BITWIDTH == 48 ?    '{num_indices: 4, indices: '{20,21,47,48,-1,-1}} :
+        BITWIDTH == 49 ?    '{num_indices: 2, indices: '{40,49,-1,-1,-1,-1}} :
+        BITWIDTH == 50 ?    '{num_indices: 4, indices: '{23,24,49,50,-1,-1}} :
+        BITWIDTH == 51 ?    '{num_indices: 4, indices: '{35,36,50,51,-1,-1}} :
+        BITWIDTH == 52 ?    '{num_indices: 2, indices: '{49,52,-1,-1,-1,-1}} :
+        BITWIDTH == 53 ?    '{num_indices: 4, indices: '{37,38,52,53,-1,-1}} :
+        BITWIDTH == 54 ?    '{num_indices: 4, indices: '{17,18,53,54,-1,-1}} :
+        BITWIDTH == 55 ?    '{num_indices: 2, indices: '{31,55,-1,-1,-1,-1}} :
+        BITWIDTH == 56 ?    '{num_indices: 4, indices: '{34,35,55,56,-1,-1}} :
+        BITWIDTH == 57 ?    '{num_indices: 2, indices: '{57,50,-1,-1,-1,-1}} :
+        BITWIDTH == 58 ?    '{num_indices: 2, indices: '{39,58,-1,-1,-1,-1}} :
+        BITWIDTH == 59 ?    '{num_indices: 4, indices: '{37,38,58,59,-1,-1}} :
+        BITWIDTH == 60 ?    '{num_indices: 2, indices: '{59,60,-1,-1,-1,-1}} :
+        BITWIDTH == 61 ?    '{num_indices: 4, indices: '{45,46,60,61,-1,-1}} :
+        BITWIDTH == 62 ?    '{num_indices: 4, indices: '{5,6,61,62,-1,-1}} :
+        BITWIDTH == 63 ?    '{num_indices: 2, indices: '{62,63,-1,-1,-1,-1}} :
+        BITWIDTH == 64 ?    '{num_indices: 4, indices: '{60,61,63,64,-1,-1}} :
+        BITWIDTH == 65 ?    '{num_indices: 2, indices: '{47,65,-1,-1,-1,-1}} :
+        BITWIDTH == 66 ?    '{num_indices: 4, indices: '{56,57,65,66,-1,-1}} :
+        BITWIDTH == 67 ?    '{num_indices: 4, indices: '{57,58,66,67,-1,-1}} :
+        BITWIDTH == 68 ?    '{num_indices: 2, indices: '{59,68,-1,-1,-1,-1}} :
+        BITWIDTH == 69 ?    '{num_indices: 4, indices: '{40,42,67,69,-1,-1}} :
+        BITWIDTH == 70 ?    '{num_indices: 4, indices: '{54,55,69,70,-1,-1}} :
+        BITWIDTH == 71 ?    '{num_indices: 2, indices: '{65,71,-1,-1,-1,-1}} :
+        BITWIDTH == 72 ?    '{num_indices: 4, indices: '{19,25,66,72,-1,-1}} :
+        BITWIDTH == 73 ?    '{num_indices: 2, indices: '{48,73,-1,-1,-1,-1}} :
+        BITWIDTH == 74 ?    '{num_indices: 4, indices: '{58,59,73,74,-1,-1}} :
+        BITWIDTH == 75 ?    '{num_indices: 4, indices: '{64,65,74,75,-1,-1}} :
+        BITWIDTH == 76 ?    '{num_indices: 4, indices: '{40,41,75,76,-1,-1}} :
+        BITWIDTH == 77 ?    '{num_indices: 4, indices: '{46,47,76,77,-1,-1}} :
+        BITWIDTH == 78 ?    '{num_indices: 4, indices: '{58,59,77,78,-1,-1}} :
+        BITWIDTH == 79 ?    '{num_indices: 2, indices: '{70,79,-1,-1,-1,-1}} :
+        BITWIDTH == 80 ?    '{num_indices: 4, indices: '{42,43,79,80,-1,-1}} :
+        BITWIDTH == 81 ?    '{num_indices: 2, indices: '{77,81,-1,-1,-1,-1}} :
+        BITWIDTH == 82 ?    '{num_indices: 4, indices: '{44,47,79,82,-1,-1}} :
+        BITWIDTH == 83 ?    '{num_indices: 4, indices: '{37,38,82,83,-1,-1}} :
+        BITWIDTH == 84 ?    '{num_indices: 2, indices: '{71,84,-1,-1,-1,-1}} :
+        BITWIDTH == 85 ?    '{num_indices: 4, indices: '{57,58,84,85,-1,-1}} :
+        BITWIDTH == 86 ?    '{num_indices: 4, indices: '{73,74,85,86,-1,-1}} :
+        BITWIDTH == 87 ?    '{num_indices: 2, indices: '{74,87,-1,-1,-1,-1}} :
+        BITWIDTH == 88 ?    '{num_indices: 4, indices: '{16,17,87,88,-1,-1}} :
+        BITWIDTH == 89 ?    '{num_indices: 2, indices: '{51,89,-1,-1,-1,-1}} :
+        BITWIDTH == 90 ?    '{num_indices: 4, indices: '{71,72,89,90,-1,-1}} :
+        BITWIDTH == 91 ?    '{num_indices: 4, indices: '{7,8,90,91,-1,-1}} :
+        BITWIDTH == 92 ?    '{num_indices: 4, indices: '{79,80,91,92,-1,-1}} :
+        BITWIDTH == 93 ?    '{num_indices: 2, indices: '{91,93,-1,-1,-1,-1}} :
+        BITWIDTH == 94 ?    '{num_indices: 2, indices: '{73,94,-1,-1,-1,-1}} :
+        BITWIDTH == 95 ?    '{num_indices: 2, indices: '{84,95,-1,-1,-1,-1}} :
+        BITWIDTH == 96 ?    '{num_indices: 4, indices: '{47,49,94,96,-1,-1}} :
+        BITWIDTH == 97 ?    '{num_indices: 2, indices: '{91,97,-1,-1,-1,-1}} :
+        BITWIDTH == 98 ?    '{num_indices: 2, indices: '{87,98,-1,-1,-1,-1}} :
+        BITWIDTH == 99 ?    '{num_indices: 4, indices: '{52,54,97,99,-1,-1}} :
+        BITWIDTH == 100 ?   '{num_indices: 2, indices: '{63,100,-1,-1,-1,-1}} :
+        BITWIDTH == 101 ?   '{num_indices: 4, indices: '{94,95,100,101,-1,-1}} :
+        BITWIDTH == 102 ?   '{num_indices: 4, indices: '{35,36,101,102,-1,-1}} :
+        BITWIDTH == 103 ?   '{num_indices: 2, indices: '{94,103,-1,-1,-1,-1}} :
+        BITWIDTH == 104 ?   '{num_indices: 4, indices: '{93,94,103,104,-1,-1}} :
+        BITWIDTH == 105 ?   '{num_indices: 2, indices: '{89,105,-1,-1,-1,-1}} :
+        BITWIDTH == 106 ?   '{num_indices: 2, indices: '{91,106,-1,-1,-1,-1}} :
+        BITWIDTH == 107 ?   '{num_indices: 4, indices: '{42,44,105,107,-1,-1}} :
+        BITWIDTH == 108 ?   '{num_indices: 2, indices: '{77,108,-1,-1,-1,-1}} :
+        BITWIDTH == 109 ?   '{num_indices: 4, indices: '{102,103,108,109,-1,-1}} :
+        BITWIDTH == 110 ?   '{num_indices: 4, indices: '{97,98,109,110,-1,-1}} :
+        BITWIDTH == 111 ?   '{num_indices: 2, indices: '{101,111,-1,-1,-1,-1}} :
+        BITWIDTH == 112 ?   '{num_indices: 4, indices: '{67,69,110,112,-1,-1}} :
+        BITWIDTH == 113 ?   '{num_indices: 2, indices: '{104,113,-1,-1,-1,-1}} :
+        BITWIDTH == 114 ?   '{num_indices: 4, indices: '{32,33,113,114,-1,-1}} :
+        BITWIDTH == 115 ?   '{num_indices: 4, indices: '{100,101,114,115,-1,-1}} :
+        BITWIDTH == 116 ?   '{num_indices: 4, indices: '{45,46,115,116,-1,-1}} :
+        BITWIDTH == 117 ?   '{num_indices: 4, indices: '{97,99,115,117,-1,-1}} :
+        BITWIDTH == 118 ?   '{num_indices: 2, indices: '{85,118,-1,-1,-1,-1}} :
+        BITWIDTH == 119 ?   '{num_indices: 2, indices: '{111,119,-1,-1,-1,-1}} :
+        BITWIDTH == 120 ?   '{num_indices: 4, indices: '{2,9,113,120,-1,-1}} :
+        BITWIDTH == 121 ?   '{num_indices: 2, indices: '{103,121,-1,-1,-1,-1}} :
+        BITWIDTH == 122 ?   '{num_indices: 4, indices: '{62,63,121,122,-1,-1}} :
+        BITWIDTH == 123 ?   '{num_indices: 2, indices: '{121,123,-1,-1,-1,-1}} :
+        BITWIDTH == 124 ?   '{num_indices: 2, indices: '{87,124,-1,-1,-1,-1}} :
+        BITWIDTH == 125 ?   '{num_indices: 4, indices: '{17,18,124,125,-1,-1}} :
+        BITWIDTH == 126 ?   '{num_indices: 4, indices: '{89,90,125,126,-1,-1}} :
+        BITWIDTH == 127 ?   '{num_indices: 2, indices: '{126,127,-1,-1,-1,-1}} :
+        BITWIDTH == 128 ?   '{num_indices: 4, indices: '{99,101,126,128,-1,-1}} :
+        BITWIDTH == 129 ?   '{num_indices: 2, indices: '{124,129,-1,-1,-1,-1}} :
+        BITWIDTH == 130 ?   '{num_indices: 2, indices: '{127,130,-1,-1,-1,-1}} :
+        BITWIDTH == 131 ?   '{num_indices: 4, indices: '{83,84,130,131,-1,-1}} :
+        BITWIDTH == 132 ?   '{num_indices: 2, indices: '{103,132,-1,-1,-1,-1}} :
+        BITWIDTH == 133 ?   '{num_indices: 4, indices: '{81,82,132,133,-1,-1}} :
+        BITWIDTH == 134 ?   '{num_indices: 2, indices: '{77,134,-1,-1,-1,-1}} :
+        BITWIDTH == 135 ?   '{num_indices: 2, indices: '{124,135,-1,-1,-1,-1}} :
+        BITWIDTH == 136 ?   '{num_indices: 4, indices: '{10,11,135,136,-1,-1}} :
+        BITWIDTH == 137 ?   '{num_indices: 2, indices: '{116,137,-1,-1,-1,-1}} :
+        BITWIDTH == 138 ?   '{num_indices: 4, indices: '{130,131,137,138,-1,-1}} :
+        BITWIDTH == 139 ?   '{num_indices: 4, indices: '{131,134,136,139,-1,-1}} :
+        BITWIDTH == 140 ?   '{num_indices: 2, indices: '{111,140,-1,-1,-1,-1}} :
+        BITWIDTH == 141 ?   '{num_indices: 4, indices: '{109,110,140,141,-1,-1}} :
+        BITWIDTH == 142 ?   '{num_indices: 2, indices: '{121,142,-1,-1,-1,-1}} :
+        BITWIDTH == 143 ?   '{num_indices: 4, indices: '{122,123,142,143,-1,-1}} :
+        BITWIDTH == 144 ?   '{num_indices: 4, indices: '{74,75,143,144,-1,-1}} :
+        BITWIDTH == 145 ?   '{num_indices: 2, indices: '{93,145,-1,-1,-1,-1}} :
+        BITWIDTH == 146 ?   '{num_indices: 4, indices: '{86,87,145,146,-1,-1}} :
+        BITWIDTH == 147 ?   '{num_indices: 4, indices: '{109,110,156,147,-1,-1}} :
+        BITWIDTH == 148 ?   '{num_indices: 2, indices: '{121,148,-1,-1,-1,-1}} :
+        BITWIDTH == 149 ?   '{num_indices: 4, indices: '{39,40,148,149,-1,-1}} :
+        BITWIDTH == 150 ?   '{num_indices: 2, indices: '{97,150,-1,-1,-1,-1}} :
+        BITWIDTH == 151 ?   '{num_indices: 2, indices: '{148,151,-1,-1,-1,-1}} :
+        BITWIDTH == 152 ?   '{num_indices: 4, indices: '{86,87,151,152,-1,-1}} :
+        BITWIDTH == 153 ?   '{num_indices: 2, indices: '{152,153,-1,-1,-1,-1}} :
+        BITWIDTH == 154 ?   '{num_indices: 4, indices: '{25,27,152,154,-1,-1}} :
+        BITWIDTH == 155 ?   '{num_indices: 4, indices: '{123,124,154,155,-1,-1}} :
+        BITWIDTH == 156 ?   '{num_indices: 4, indices: '{40,41,155,156,-1,-1}} :
+        BITWIDTH == 157 ?   '{num_indices: 4, indices: '{130,131,156,157,-1,-1}} :
+        BITWIDTH == 158 ?   '{num_indices: 4, indices: '{131,132,157,158,-1,-1}} :
+        BITWIDTH == 159 ?   '{num_indices: 2, indices: '{128,159,-1,-1,-1,-1}} :
+        BITWIDTH == 160 ?   '{num_indices: 4, indices: '{141,142,159,160,-1,-1}} :
+        BITWIDTH == 161 ?   '{num_indices: 2, indices: '{161,143,-1,-1,-1,-1}} :
+        BITWIDTH == 162 ?   '{num_indices: 4, indices: '{74,75,161,162,-1,-1}} :
+        BITWIDTH == 163 ?   '{num_indices: 4, indices: '{103,104,162,163,-1,-1}} :
+        BITWIDTH == 164 ?   '{num_indices: 4, indices: '{150,151,163,164,-1,-1}} :
+        BITWIDTH == 165 ?   '{num_indices: 4, indices: '{134,135,164,165,-1,-1}} :
+        BITWIDTH == 166 ?   '{num_indices: 4, indices: '{127,128,165,166,-1,-1}} :
+        BITWIDTH == 167 ?   '{num_indices: 2, indices: '{161,167,-1,-1,-1,-1}} :
+        BITWIDTH == 168 ?   '{num_indices: 4, indices: '{151,153,166,168,-1,-1}} :
+        '{num_indices: 1, indices: '{-1,-1,-1,-1,-1,-1}}
 ) (
     input logic                             clk,
     output logic    [BITWIDTH-1:0]          o_counter = '0
@@ -53,187 +236,6 @@ module lfsr_max_counter #(
         end
     end endgenerate
 
-    // note: for the sake of consistency with the application note and the 
-    // literature (according to xilinx), the indices here are human-counting, 
-    // not machine-counting. This is corrected for later on when actually 
-    // tapping the counter.
-    generate
-        // !!! notice: TAP_INDICES HAS to be an unpacked array in order for 
-        // $size(LCL.TAP_INDICES) to work properly later on. $size doesn't work 
-        // (the way we'd want it to) with packed arrays. !!!
-        // !!! also: the arrays need to be in ascending order. Otherwise the 
-        // tap_cascade assigments in the gen statement below don't work properly 
-        // !!!
-        case (BITWIDTH)
-            3: begin: LCL           localparam int TAP_INDICES [2] = '{2,3}; end
-            4: begin: LCL           localparam int TAP_INDICES [2] = '{3,4}; end
-            5: begin: LCL           localparam int TAP_INDICES [2] = '{3,5}; end
-            6: begin: LCL           localparam int TAP_INDICES [2] = '{5,6}; end
-            7: begin: LCL           localparam int TAP_INDICES [2] = '{6,7}; end
-            8: begin: LCL           localparam int TAP_INDICES [4] = '{4,5,6,8}; end
-            9: begin: LCL           localparam int TAP_INDICES [2] = '{5,9}; end
-           10: begin: LCL           localparam int TAP_INDICES [2] = '{7,10}; end
-           11: begin: LCL           localparam int TAP_INDICES [2] = '{9,11}; end
-           12: begin: LCL           localparam int TAP_INDICES [4] = '{1,4,6,12}; end
-           13: begin: LCL           localparam int TAP_INDICES [4] = '{1,3,4,13}; end
-           14: begin: LCL           localparam int TAP_INDICES [4] = '{1,3,5,14}; end
-           15: begin: LCL           localparam int TAP_INDICES [2] = '{14,15}; end
-           16: begin: LCL           localparam int TAP_INDICES [4] = '{4,13,15,16}; end
-           17: begin: LCL           localparam int TAP_INDICES [2] = '{14,17}; end
-           18: begin: LCL           localparam int TAP_INDICES [2] = '{11,18}; end
-           19: begin: LCL           localparam int TAP_INDICES [4] = '{1,2,6,19}; end
-           20: begin: LCL           localparam int TAP_INDICES [2] = '{17,20}; end
-           21: begin: LCL           localparam int TAP_INDICES [2] = '{19,21}; end
-           22: begin: LCL           localparam int TAP_INDICES [2] = '{21,22}; end
-           23: begin: LCL           localparam int TAP_INDICES [2] = '{18,23}; end
-           24: begin: LCL           localparam int TAP_INDICES [4] = '{17,22,23,24}; end
-           25: begin: LCL           localparam int TAP_INDICES [2] = '{22,25}; end
-           26: begin: LCL           localparam int TAP_INDICES [4] = '{1,2,6,26}; end
-           27: begin: LCL           localparam int TAP_INDICES [4] = '{1,2,5,27}; end
-           28: begin: LCL           localparam int TAP_INDICES [2] = '{25,28}; end
-           29: begin: LCL           localparam int TAP_INDICES [2] = '{27,29}; end
-           30: begin: LCL           localparam int TAP_INDICES [4] = '{1,4,6,30}; end
-           31: begin: LCL           localparam int TAP_INDICES [2] = '{28,31}; end
-           32: begin: LCL           localparam int TAP_INDICES [4] = '{1,2,22,32}; end
-           33: begin: LCL           localparam int TAP_INDICES [2] = '{20,33}; end
-           34: begin: LCL           localparam int TAP_INDICES [4] = '{1,2,27,34}; end
-           35: begin: LCL           localparam int TAP_INDICES [2] = '{33,35}; end
-           36: begin: LCL           localparam int TAP_INDICES [2] = '{25,36}; end
-           37: begin: LCL           localparam int TAP_INDICES [6] = '{1,2,3,4,5,37}; end
-           38: begin: LCL           localparam int TAP_INDICES [4] = '{1,5,6,38}; end
-           39: begin: LCL           localparam int TAP_INDICES [2] = '{35,39}; end
-           40: begin: LCL           localparam int TAP_INDICES [4] = '{19,21,38,40}; end
-           41: begin: LCL           localparam int TAP_INDICES [2] = '{38,41}; end
-           42: begin: LCL           localparam int TAP_INDICES [4] = '{19,20,41,42}; end
-           43: begin: LCL           localparam int TAP_INDICES [4] = '{37,38,42,43}; end
-           44: begin: LCL           localparam int TAP_INDICES [4] = '{17,18,43,44}; end
-           45: begin: LCL           localparam int TAP_INDICES [4] = '{41,42,44,45}; end
-           46: begin: LCL           localparam int TAP_INDICES [4] = '{25,26,45,46}; end
-           47: begin: LCL           localparam int TAP_INDICES [2] = '{42,47}; end
-           48: begin: LCL           localparam int TAP_INDICES [4] = '{20,21,47,48}; end
-           49: begin: LCL           localparam int TAP_INDICES [2] = '{40,49}; end
-           50: begin: LCL           localparam int TAP_INDICES [4] = '{23,24,49,50}; end
-           51: begin: LCL           localparam int TAP_INDICES [4] = '{35,36,50,51}; end
-           52: begin: LCL           localparam int TAP_INDICES [2] = '{49,52}; end
-           53: begin: LCL           localparam int TAP_INDICES [4] = '{37,38,52,53}; end
-           54: begin: LCL           localparam int TAP_INDICES [4] = '{17,18,53,54}; end
-           55: begin: LCL           localparam int TAP_INDICES [2] = '{31,55}; end
-           56: begin: LCL           localparam int TAP_INDICES [4] = '{34,35,55,56}; end
-           57: begin: LCL           localparam int TAP_INDICES [2] = '{57,50}; end
-           58: begin: LCL           localparam int TAP_INDICES [2] = '{39,58}; end
-           59: begin: LCL           localparam int TAP_INDICES [4] = '{37,38,58,59}; end
-           60: begin: LCL           localparam int TAP_INDICES [2] = '{59,60}; end
-           61: begin: LCL           localparam int TAP_INDICES [4] = '{45,46,60,61}; end
-           62: begin: LCL           localparam int TAP_INDICES [4] = '{5,6,61,62}; end
-           63: begin: LCL           localparam int TAP_INDICES [2] = '{62,63}; end
-           64: begin: LCL           localparam int TAP_INDICES [4] = '{60,61,63,64}; end
-           65: begin: LCL           localparam int TAP_INDICES [2] = '{47,65}; end
-           66: begin: LCL           localparam int TAP_INDICES [4] = '{56,57,65,66}; end
-           67: begin: LCL           localparam int TAP_INDICES [4] = '{57,58,66,67}; end
-           68: begin: LCL           localparam int TAP_INDICES [2] = '{59,68}; end
-           69: begin: LCL           localparam int TAP_INDICES [4] = '{40,42,67,69}; end
-           70: begin: LCL           localparam int TAP_INDICES [4] = '{54,55,69,70}; end
-           71: begin: LCL           localparam int TAP_INDICES [2] = '{65,71}; end
-           72: begin: LCL           localparam int TAP_INDICES [4] = '{19,25,66,72}; end
-           73: begin: LCL           localparam int TAP_INDICES [2] = '{48,73}; end
-           74: begin: LCL           localparam int TAP_INDICES [4] = '{58,59,73,74}; end
-           75: begin: LCL           localparam int TAP_INDICES [4] = '{64,65,74,75}; end
-           76: begin: LCL           localparam int TAP_INDICES [4] = '{40,41,75,76}; end
-           77: begin: LCL           localparam int TAP_INDICES [4] = '{46,47,76,77}; end
-           78: begin: LCL           localparam int TAP_INDICES [4] = '{58,59,77,78}; end
-           79: begin: LCL           localparam int TAP_INDICES [2] = '{70,79}; end
-           80: begin: LCL           localparam int TAP_INDICES [4] = '{42,43,79,80}; end
-           81: begin: LCL           localparam int TAP_INDICES [2] = '{77,81}; end
-           82: begin: LCL           localparam int TAP_INDICES [4] = '{44,47,79,82}; end
-           83: begin: LCL           localparam int TAP_INDICES [4] = '{37,38,82,83}; end
-           84: begin: LCL           localparam int TAP_INDICES [2] = '{71,84}; end
-           85: begin: LCL           localparam int TAP_INDICES [4] = '{57,58,84,85}; end
-           86: begin: LCL           localparam int TAP_INDICES [4] = '{73,74,85,86}; end
-           87: begin: LCL           localparam int TAP_INDICES [2] = '{74,87}; end
-           88: begin: LCL           localparam int TAP_INDICES [4] = '{16,17,87,88}; end
-           89: begin: LCL           localparam int TAP_INDICES [2] = '{51,89}; end
-           90: begin: LCL           localparam int TAP_INDICES [4] = '{71,72,89,90}; end
-           91: begin: LCL           localparam int TAP_INDICES [4] = '{7,8,90,91}; end
-           92: begin: LCL           localparam int TAP_INDICES [4] = '{79,80,91,92}; end
-           93: begin: LCL           localparam int TAP_INDICES [2] = '{91,93}; end
-           94: begin: LCL           localparam int TAP_INDICES [2] = '{73,94}; end
-           95: begin: LCL           localparam int TAP_INDICES [2] = '{84,95}; end
-           96: begin: LCL           localparam int TAP_INDICES [4] = '{47,49,94,96}; end
-           97: begin: LCL           localparam int TAP_INDICES [2] = '{91,97}; end
-           98: begin: LCL           localparam int TAP_INDICES [2] = '{87,98}; end
-           99: begin: LCL           localparam int TAP_INDICES [4] = '{52,54,97,99}; end
-          100: begin: LCL           localparam int TAP_INDICES [2] = '{63,100}; end
-          101: begin: LCL           localparam int TAP_INDICES [4] = '{94,95,100,101}; end
-          102: begin: LCL           localparam int TAP_INDICES [4] = '{35,36,101,102}; end
-          103: begin: LCL           localparam int TAP_INDICES [2] = '{94,103}; end
-          104: begin: LCL           localparam int TAP_INDICES [4] = '{93,94,103,104}; end
-          105: begin: LCL           localparam int TAP_INDICES [2] = '{89,105}; end
-          106: begin: LCL           localparam int TAP_INDICES [2] = '{91,106}; end
-          107: begin: LCL           localparam int TAP_INDICES [4] = '{42,44,105,107}; end
-          108: begin: LCL           localparam int TAP_INDICES [2] = '{77,108}; end
-          109: begin: LCL           localparam int TAP_INDICES [4] = '{102,103,108,109}; end
-          110: begin: LCL           localparam int TAP_INDICES [4] = '{97,98,109,110}; end
-          111: begin: LCL           localparam int TAP_INDICES [2] = '{101,111}; end
-          112: begin: LCL           localparam int TAP_INDICES [4] = '{67,69,110,112}; end
-          113: begin: LCL           localparam int TAP_INDICES [2] = '{104,113}; end
-          114: begin: LCL           localparam int TAP_INDICES [4] = '{32,33,113,114}; end
-          115: begin: LCL           localparam int TAP_INDICES [4] = '{100,101,114,115}; end
-          116: begin: LCL           localparam int TAP_INDICES [4] = '{45,46,115,116}; end
-          117: begin: LCL           localparam int TAP_INDICES [4] = '{97,99,115,117}; end
-          118: begin: LCL           localparam int TAP_INDICES [2] = '{85,118}; end
-          119: begin: LCL           localparam int TAP_INDICES [2] = '{111,119}; end
-          120: begin: LCL           localparam int TAP_INDICES [4] = '{2,9,113,120}; end
-          121: begin: LCL           localparam int TAP_INDICES [2] = '{103,121}; end
-          122: begin: LCL           localparam int TAP_INDICES [4] = '{62,63,121,122}; end
-          123: begin: LCL           localparam int TAP_INDICES [2] = '{121,123}; end
-          124: begin: LCL           localparam int TAP_INDICES [2] = '{87,124}; end
-          125: begin: LCL           localparam int TAP_INDICES [4] = '{17,18,124,125}; end
-          126: begin: LCL           localparam int TAP_INDICES [4] = '{89,90,125,126}; end
-          127: begin: LCL           localparam int TAP_INDICES [2] = '{126,127}; end
-          128: begin: LCL           localparam int TAP_INDICES [4] = '{99,101,126,128}; end
-          129: begin: LCL           localparam int TAP_INDICES [2] = '{124,129}; end
-          130: begin: LCL           localparam int TAP_INDICES [2] = '{127,130}; end
-          131: begin: LCL           localparam int TAP_INDICES [4] = '{83,84,130,131}; end
-          132: begin: LCL           localparam int TAP_INDICES [2] = '{103,132}; end
-          133: begin: LCL           localparam int TAP_INDICES [4] = '{81,82,132,133}; end
-          134: begin: LCL           localparam int TAP_INDICES [2] = '{77,134}; end
-          135: begin: LCL           localparam int TAP_INDICES [2] = '{124,135}; end
-          136: begin: LCL           localparam int TAP_INDICES [4] = '{10,11,135,136}; end
-          137: begin: LCL           localparam int TAP_INDICES [2] = '{116,137}; end
-          138: begin: LCL           localparam int TAP_INDICES [4] = '{130,131,137,138}; end
-          139: begin: LCL           localparam int TAP_INDICES [4] = '{131,134,136,139}; end
-          140: begin: LCL           localparam int TAP_INDICES [2] = '{111,140}; end
-          141: begin: LCL           localparam int TAP_INDICES [4] = '{109,110,140,141}; end
-          142: begin: LCL           localparam int TAP_INDICES [2] = '{121,142}; end
-          143: begin: LCL           localparam int TAP_INDICES [4] = '{122,123,142,143}; end
-          144: begin: LCL           localparam int TAP_INDICES [4] = '{74,75,143,144}; end
-          145: begin: LCL           localparam int TAP_INDICES [2] = '{93,145}; end
-          146: begin: LCL           localparam int TAP_INDICES [4] = '{86,87,145,146}; end
-          147: begin: LCL           localparam int TAP_INDICES [4] = '{109,110,156,147}; end
-          148: begin: LCL           localparam int TAP_INDICES [2] = '{121,148}; end
-          149: begin: LCL           localparam int TAP_INDICES [4] = '{39,40,148,149}; end
-          150: begin: LCL           localparam int TAP_INDICES [2] = '{97,150}; end
-          151: begin: LCL           localparam int TAP_INDICES [2] = '{148,151}; end
-          152: begin: LCL           localparam int TAP_INDICES [4] = '{86,87,151,152}; end
-          153: begin: LCL           localparam int TAP_INDICES [2] = '{152,153}; end
-          154: begin: LCL           localparam int TAP_INDICES [4] = '{25,27,152,154}; end
-          155: begin: LCL           localparam int TAP_INDICES [4] = '{123,124,154,155}; end
-          156: begin: LCL           localparam int TAP_INDICES [4] = '{40,41,155,156}; end
-          157: begin: LCL           localparam int TAP_INDICES [4] = '{130,131,156,157}; end
-          158: begin: LCL           localparam int TAP_INDICES [4] = '{131,132,157,158}; end
-          159: begin: LCL           localparam int TAP_INDICES [2] = '{128,159}; end
-          160: begin: LCL           localparam int TAP_INDICES [4] = '{141,142,159,160}; end
-          161: begin: LCL           localparam int TAP_INDICES [2] = '{161,143}; end
-          162: begin: LCL           localparam int TAP_INDICES [4] = '{74,75,161,162}; end
-          163: begin: LCL           localparam int TAP_INDICES [4] = '{103,104,162,163}; end
-          164: begin: LCL           localparam int TAP_INDICES [4] = '{150,151,163,164}; end
-          165: begin: LCL           localparam int TAP_INDICES [4] = '{134,135,164,165}; end
-          166: begin: LCL           localparam int TAP_INDICES [4] = '{127,128,165,166}; end
-          167: begin: LCL           localparam int TAP_INDICES [2] = '{161,167}; end
-          168: begin: LCL           localparam int TAP_INDICES [4] = '{151,153,166,168}; end
-            default: begin: LCL     localparam int TAP_INDICES [1] = '{-1}; end
-        endcase
-    endgenerate
 
     //----------------------------------------------------------
     // INTERNAL SIGNALS
@@ -241,19 +243,20 @@ module lfsr_max_counter #(
 
     logic                               bit_feedback;
 
+
     //----------------------------------------------------------
     // OPERATION
     //----------------------------------------------------------
 
     genvar i;
     generate begin: gen_taps
-        logic [$size(LCL.TAP_INDICES)-1:0] tap_cascade;
-        for (i=0; i<$size(LCL.TAP_INDICES); i++) begin
-            if (i != $size(LCL.TAP_INDICES)-1) begin
+        logic [TAP_INDICES.num_indices-1:0] tap_cascade;
+        for (i=0; i<TAP_INDICES.num_indices; i++) begin
+            if (i != TAP_INDICES.num_indices-1) begin
                 // (remember -1 to account for human counting in the tap indices)
-                assign tap_cascade[i] = ~(o_counter[LCL.TAP_INDICES[i]-1] ^ tap_cascade[i+1]);
+                assign tap_cascade[i] = ~(o_counter[TAP_INDICES.indices[i]-1] ^ tap_cascade[i+1]);
             end else begin
-                assign tap_cascade[i] = o_counter[LCL.TAP_INDICES[i]-1];
+                assign tap_cascade[i] = o_counter[TAP_INDICES.indices[i]-1];
             end
         end
         assign bit_feedback = tap_cascade[0];
