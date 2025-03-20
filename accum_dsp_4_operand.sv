@@ -77,6 +77,7 @@ module accum_dsp_4_operand #(
 
     logic [DSP48E2_P_WIDTH-1:0]             dsp_cascade;
     logic                                   dsp_mult_sign;
+    logic                                   dsp_mult_sign_dummy;
     logic [DSP48E2_P_WIDTH-1:0]             dsp_result;
     logic [DSP48E2_P_WIDTH-1:0]             dummy_dsp_result;
     logic [DSP48E2_A_WIDTH-1:0]             dsp_op_a    [2];
@@ -240,7 +241,7 @@ module accum_dsp_4_operand #(
         .ACOUT(dummy_dsp_master_acout),
         .BCOUT(dummy_dsp_master_bcout),
         .CARRYCASCOUT(dummy_dsp_master_carrycascout),
-        .MULTSIGNOUT(dsp_mult_sign),
+        .MULTSIGNOUT(dsp_mult_sign_dummy), // dummy
         .PCOUT(dummy_dsp_cascade),
 
         // CONTROL INPUTS
@@ -360,7 +361,7 @@ module accum_dsp_4_operand #(
         .ACOUT(dummy_dsp_slave_acout),
         .BCOUT(dummy_dsp_slave_bcout),
         .CARRYCASCOUT(dummy_dsp_slave_carrycascout),
-        .MULTSIGNOUT(o_mult_sign),
+        .MULTSIGNOUT(dsp_mult_sign),
         .PCOUT(dsp_cascade),
 
         // CONTROL INPUTS
