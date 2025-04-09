@@ -7,6 +7,12 @@ package mcm_math_pkg;
     localparam                      DSP48E2_D_WIDTH = 27;
     localparam                      DSP48E2_P_WIDTH = 48;
 
+    typedef logic [DSP48E2_A_WIDTH-1:0] dsp_48e2_a_t;
+    typedef logic [DSP48E2_B_WIDTH-1:0] dsp_48e2_b_t;
+    typedef logic [DSP48E2_C_WIDTH-1:0] dsp_48e2_c_t;
+    typedef logic [DSP48E2_D_WIDTH-1:0] dsp_48e2_d_t;
+    typedef logic [DSP48E2_P_WIDTH-1:0] dsp_48e2_p_t;
+
     /*
     * Reverting to stupid binning implementation because questa thinks this is 
     * not a constant function, due to the use of system function (if I remove 

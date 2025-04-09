@@ -232,11 +232,11 @@ module accum_dsp_4_operand #(
         .P(dsp_result),
         .XOROUT(dummy_dsp_master_xorout),
         // CASCADE INPUTS
-        .ACIN({DSP48E2_A_WIDTH{1'b1}}), // dummy
-        .BCIN({DSP48E2_B_WIDTH{1'b1}}), // dummy
-        .CARRYCASCIN('1), // dummy
-        .MULTSIGNIN(dsp_mult_sign), // dummy
-        .PCIN(dsp_cascade), // dummy
+        .ACIN(),
+        .BCIN(),
+        .CARRYCASCIN(),
+        .MULTSIGNIN(dsp_mult_sign),
+        .PCIN(dsp_cascade),
         // CASCADE OUTPUTS
         .ACOUT(dummy_dsp_master_acout),
         .BCOUT(dummy_dsp_master_bcout),
@@ -352,11 +352,11 @@ module accum_dsp_4_operand #(
         .P(dummy_dsp_result),
         .XOROUT(dummy_dsp_slave_xorout),
         // CASCADE INPUTS
-        .ACIN({DSP48E2_A_WIDTH{1'b1}}), // dummy
-        .BCIN({DSP48E2_B_WIDTH{1'b1}}), // dummy
-        .CARRYCASCIN('1), // dummy
-        .MULTSIGNIN(1'b1), // dummy
-        .PCIN({DSP48E2_P_WIDTH{1'b1}}), // dummy
+        .ACIN(),
+        .BCIN(),
+        .CARRYCASCIN(),
+        .MULTSIGNIN(),
+        .PCIN(),
         // CASCADE OUTPUTS
         .ACOUT(dummy_dsp_slave_acout),
         .BCOUT(dummy_dsp_slave_bcout),
