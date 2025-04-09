@@ -188,15 +188,23 @@ module float_to_fp #(
     end
 
     generate begin: gen_denormalized_mantissa
-        // temporary variable
+        // temporary variables
+        logic [LCL_FLOAT_WIDTH_MANTISSA-1:0] float_mantissa_div_bias;
         logic [FP_WIDTH_FRAC-1:0] fp_frac_denorm;
 
         // keep in mind: the lowest possible exponent is bias-1 because all 0's 
         // is reserved - shift the mantissa by (bias-1), not by bias
         
         if (LCL_FLOAT_WIDTH_MANTISSA >= FP_WIDTH_FRAC) begin
-            assign fp_frac_denorm = {float_mantissa>>(LCL_FLOAT_EXPONENT_BIAS-1)}
-                                    [LCL_FLOAT_WIDTH_MANTISSA-1 -: FP_WIDTH_FRAC];
+            // necessary in two steps, because shifting and slicing in the same 
+            // step is not supported by xsim, and the module was used in vitis 
+            // hardware emulation, which again for some platforms supports 
+            // nothing else than xsim
+            assign float_mantissa_div_bias = float_mantissa>>(LCL_FLOAT_EXPONENT_BIAS-1);
+            assign fp_frac_denorm =
+                            float_mantissa_div_bias[LCL_FLOAT_WIDTH_MANTISSA-1 -: FP_WIDTH_FRAC];
+//             assign fp_frac_denorm = {float_mantissa>>(LCL_FLOAT_EXPONENT_BIAS-1)}
+//                                     [LCL_FLOAT_WIDTH_MANTISSA-1 -: FP_WIDTH_FRAC];
         end else begin
             assign fp_frac_denorm = {float_mantissa,
                                         {(FP_WIDTH_FRAC-LCL_FLOAT_WIDTH_MANTISSA){1'b0}}}>>
