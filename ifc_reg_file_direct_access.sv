@@ -13,16 +13,19 @@ interface ifc_reg_file_direct_access #(
 );
 
     logic [NUM_REGISTERS-1:0][REGISTER_WIDTH-1:0]   write_data;
+    // per-bit write mask (only execute a write_req for write_data bits with the 
+    // corresponding write_mask bit set)
+    logic [NUM_REGISTERS-1:0][REGISTER_WIDTH-1:0]   write_mask;
     logic [NUM_REGISTERS-1:0]                       write_req;
     logic [NUM_REGISTERS-1:0][REGISTER_WIDTH-1:0]   read_data;
 
     modport master (
-        output write_data, write_req,
+        output write_data, write_mask, write_req,
         input read_data
     );
 
     modport slave (
-        input write_data, write_req,
+        input write_data, write_mask, write_req,
         output read_data
     );
 

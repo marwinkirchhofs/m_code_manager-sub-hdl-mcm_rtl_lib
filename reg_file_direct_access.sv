@@ -28,7 +28,7 @@ module reg_file_direct_access #(
     input                                   clk,
     input                                   rst_n,
 
-    ifc_reg_file_direct_access.slave        if_reg_file [NUM_MASTERS]
+    ifc_reg_file_direct_access.slave        ifs_reg_file [NUM_MASTERS]
 );
 
     localparam                  MASTER_ID_WIDTH = $clog2(NUM_MASTERS);
@@ -83,6 +83,7 @@ module reg_file_direct_access #(
     // a packed data type.
     logic   [NUM_REGISTERS-1:0][NUM_MASTERS-1:0]                        write_req;
     logic   [NUM_REGISTERS-1:0][NUM_MASTERS-1:0][REGISTER_WIDTH-1:0]    write_data;
+    logic   [NUM_REGISTERS-1:0][NUM_MASTERS-1:0][REGISTER_WIDTH-1:0]    write_mask;
     logic                                   write_en    [NUM_REGISTERS];
     logic   [MASTER_ID_WIDTH-1:0]           write_id    [NUM_REGISTERS];
 
@@ -94,8 +95,9 @@ module reg_file_direct_access #(
     generate
         for (i=0; i<NUM_REGISTERS; i++) begin
             for (j=0; j<NUM_MASTERS; j++) begin
-                assign write_req[i][j] = if_reg_file[j].write_req[i];
-                assign write_data[i][j] = if_reg_file[j].write_data[i];
+                assign write_req[i][j] = ifs_reg_file[j].write_req[i];
+                assign write_data[i][j] = ifs_reg_file[j].write_data[i];
+                assign write_mask[i][j] = ifs_reg_file[j].write_mask[i];
             end
         end
     endgenerate
@@ -112,13 +114,15 @@ module reg_file_direct_access #(
                     register[i] <= '0;
                 end else begin
                     if (write_en[i]) begin
-                        register[i] <= write_data[i][write_id[i]];
+                        register[i] <=
+                                (register[i] & ~write_mask[i][write_id[i]]) |
+                                (write_data[i][write_id[i]] & write_mask[i][write_id[i]]);
                     end
                 end
             end
 
             for (j=0; j<NUM_MASTERS; j++) begin
-                assign if_reg_file[j].read_data[i] = register[i];
+                assign ifs_reg_file[j].read_data[i] = register[i];
             end
         end
     endgenerate
