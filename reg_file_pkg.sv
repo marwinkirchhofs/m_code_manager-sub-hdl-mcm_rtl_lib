@@ -60,14 +60,18 @@ package reg_file_pkg;
     localparam          REG_FILE_NUM_REGISTERS  = `AXI_LITE_REG_FILE_NUM_REGISTERS;
     localparam          REG_FILE_AXI_ADDR_WIDTH = `AXI_LITE_REG_FILE_AXI_ADDR_WIDTH;
 
+    typedef logic [REG_FILE_AXI_ADDR_WIDTH-1:0]     reg_file_addr_t;
+
     typedef struct packed {
-        logic   [`AXI_LITE_REG_FILE_AXI_ADDR_WIDTH-1:0] addr;
+        reg_file_addr_t                                 addr;
         logic                                           memory_mapped;
         logic                                           trigger_on_write;
         logic                                           clear_on_read;
     } reg_entry_t;
 
-    typedef logic [$clog2(REG_FILE_NUM_REGISTERS)-1:0]  reg_file_id_t;
+    // (+1 such that all 1's can be used as invalid/non-assigned id indicator)
+    typedef logic [$clog2(REG_FILE_NUM_REGISTERS+1)-1:0]  reg_file_id_t;
+    localparam          REG_FILE_ID_INVALID = reg_file_id_t'(-1);
 
     typedef struct packed {
         logic                                           entry_found;
@@ -95,7 +99,7 @@ package reg_file_pkg;
         logic [REG_FILE_AXI_ADDR_WIDTH-1:0] addr,
         reg_map_t reg_map_table
     );
-        reg_file_id_t          id = -1;
+        reg_file_id_t          id = REG_FILE_ID_INVALID;
 
         for (int i=0; i<REG_FILE_NUM_REGISTERS; i++) begin
             if (reg_map_table[i].addr == addr) begin
