@@ -35,10 +35,11 @@
 * this module)
 * 2. access the register with the ID
 *
-* latency is 1 cycle such that the ROM itself can be implemented in BRAM.
+* latency can be adjusted between 0 (LUTRAM) and 1 (BRAM). don't know if I'll 
+* ever need the BRAM option, but now it's here
 *
 * OPERATION:
-* simple ROM lookup with 1 cycle latency
+* simple ROM lookup
 *
 * undefined behavior if an address is supplied that is not aligned with 
 * REGISTER_WIDTH (in fact, lower bits simply get truncated, but it's marked as 
@@ -47,18 +48,21 @@
 * PARAMETERS:
 * :REGISTER_WIDTH: (value in bits, must be a power of 2 and >=8) required to 
 * determine the address step from one register to the next one
+* :NO_LATENCY: set to 1 (default) for a 0-latency (LUTRAM) implementation. Any 
+* other value means latency=1
 */
 
 import reg_file_pkg::*;
 
 module reg_file_rom_map_addr_id #(
-    parameter                       REGISTER_WIDTH = 32
+    parameter                       REGISTER_WIDTH = 32,
+    parameter                       NO_LATENCY = 1
 ) (
-    input logic                             clk;
-    input logic                             rst_n;
+    input logic                             clk,
+    input logic                             rst_n,
 
-    input reg_file_addr_t                   i_addr;
-    output reg_file_id_t                    o_id;
+    input reg_file_addr_t                   i_addr,
+    output reg_file_id_t                    o_id
 );
 
     localparam REGISTER_WIDTH_BYTES = (REGISTER_WIDTH>>3);
@@ -76,7 +80,8 @@ module reg_file_rom_map_addr_id #(
     reg_file_id_t                               rom_reg_file_ids [NUM_REG_FILE_ADDRESSES-1:0];
     // (dummy signal to specify ROM_STYLE on - maybe also could've done it 
     // directly on the port)
-    (* ROM_STYLE = "BLOCK" *) reg_file_id_t     id;
+//     (* ROM_STYLE = "BLOCK" *) reg_file_id_t     id;
+    reg_file_id_t                               id;
 
     logic [$clog2(NUM_REG_FILE_ADDRESSES)-1:0]  rom_reg_file_addr;
 
@@ -91,7 +96,8 @@ module reg_file_rom_map_addr_id #(
     generate
     begin: gen_rom_data
         for (i=0; i<$size(rom_reg_file_ids); i++) begin
-            assign rom_reg_file_ids[i] = reg_file_addr2id(i*REGISTER_WIDTH_BYTES);
+            assign rom_reg_file_ids[i] =
+                            reg_file_addr2id(i*REGISTER_WIDTH_BYTES, AXI_LITE_REG_MAP_TABLE);
         end
     end
     endgenerate
@@ -104,9 +110,19 @@ module reg_file_rom_map_addr_id #(
     // example: REGISTER_WIDTH=32, i_addr=00111000 -> rom_reg_file_addr=001110
     assign rom_reg_file_addr = (i_addr>>($clog2(REGISTER_WIDTH_BYTES)));
 
-    always_ff @(posedge clk) begin
-        id <= rom_reg_file[rom_reg_file_addr];
+    generate
+    begin: gen_rom_access
+        if (NO_LATENCY == 1) begin
+            always_comb begin
+                id = rom_reg_file_ids[rom_reg_file_addr];
+            end
+        end else begin
+            always_ff @(posedge clk) begin
+                id <= rom_reg_file_ids[rom_reg_file_addr];
+            end
+        end
     end
+    endgenerate
 
     assign o_id = id;
 
