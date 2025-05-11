@@ -49,7 +49,8 @@
 * :REGISTER_WIDTH: (value in bits, must be a power of 2 and >=8) required to 
 * determine the address step from one register to the next one
 * :NO_LATENCY: set to 1 (default) for a 0-latency (LUTRAM) implementation. Any 
-* other value means latency=1
+* other value means latency=1 (!!! UNTESTED for 0 !!!)
+*
 */
 
 import reg_file_pkg::*;
@@ -76,11 +77,7 @@ module reg_file_rom_map_addr_id #(
     // INTERNAL SIGNALS
     //----------------------------------------------------------
 
-//     (* ROM_STYLE = "BLOCK" *) reg_file_id_t     rom_reg_file_ids [NUM_REG_FILE_ADDRESSES-1:0];
     reg_file_id_t                               rom_reg_file_ids [NUM_REG_FILE_ADDRESSES-1:0];
-    // (dummy signal to specify ROM_STYLE on - maybe also could've done it 
-    // directly on the port)
-//     (* ROM_STYLE = "BLOCK" *) reg_file_id_t     id;
     reg_file_id_t                               id;
 
     logic [$clog2(NUM_REG_FILE_ADDRESSES)-1:0]  rom_reg_file_addr;
